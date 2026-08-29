@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Telegram Otomasyon Suite</title>
+    <!-- Modern Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom Stylesheet -->
+    <link rel="stylesheet" href="static/style.css">
+</head>
+<body>
+
+    <!-- Main Container -->
+    <div class="app-container">
+        
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <i class="fa-brands fa-telegram neon-text"></i>
+                <h2>TG<span>Toolkit</span></h2>
+            </div>
+            <nav class="sidebar-menu">
+                <a href="#" class="menu-item active" data-tab="dashboard">
+                    <i class="fa-solid fa-chart-pie"></i> Kontrol Paneli
+                </a>
+                <a href="#" class="menu-item" data-tab="accounts">
+                    <i class="fa-solid fa-users-gear"></i> Hesap Yönetimi
+                </a>
+                <a href="#" class="menu-item" data-tab="scraper">
+                    <i class="fa-solid fa-user-plus"></i> Üye Çekici
+                </a>
+                <a href="#" class="menu-item" data-tab="adder">
+                    <i class="fa-solid fa-person-circle-plus"></i> Üye Ekleme
+                </a>
+                <a href="#" class="menu-item" data-tab="messaging">
+                    <i class="fa-solid fa-paper-plane"></i> Toplu Mesaj
+                </a>
+                <a href="#" class="menu-item" data-tab="autopost">
+                    <i class="fa-solid fa-clock"></i> Otomatik Paylaşım
+                </a>
+            </nav>
+            <div class="sidebar-status">
+                <div class="status-indicator" id="task-status-dot"></div>
+                <span id="task-status-text">İşlem Yok</span>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            
+            <!-- Dashboard Tab -->
+            <section id="tab-dashboard" class="tab-content active">
+                <header class="tab-header">
+                    <h1>Kontrol Paneli</h1>
+                    <p>Sistem durumunu, ekli hesaplarınızı ve çekilen üye sayılarını takip edin.</p>
+                </header>
+
+                <!-- Stats Grid -->
+                <div class="stats-grid">
+                    <div class="stat-card glass-panel">
+                        <div class="stat-icon cyan-bg"><i class="fa-solid fa-user-check"></i></div>
+                        <div class="stat-info">
+                            <span class="stat-label">Aktif Hesaplar</span>
+                            <h3 class="stat-value" id="stat-active-accounts">0</h3>
+                        </div>
+                    </div>
+                    <div class="stat-card glass-panel">
+                        <div class="stat-icon purple-bg"><i class="fa-solid fa-database"></i></div>
+                        <div class="stat-info">
+                            <span class="stat-label">Kayıtlı Üyeler</span>
+                            <h3 class="stat-value" id="stat-scraped-members">0</h3>
+                        </div>
+                    </div>
+                    <div class="stat-card glass-panel">
+                        <div class="stat-icon green-bg"><i class="fa-solid fa-spinner"></i></div>
+                        <div class="stat-info">
+                            <span class="stat-label">Sistem Durumu</span>
+                            <h3 class="stat-value text-green" id="stat-system-status">Çalışmaya Hazır</h3>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Settings Card -->
+                <div class="card glass-panel">
+                    <h3><i class="fa-solid fa-gears card-icon"></i> Genel Limit Ayarları</h3>
+                    <div class="settings-form">
+                        <div class="form-group-row">
+                            <div class="form-group">
+                                <label for="setting-min-delay">Min Ekleme Gecikmesi (sn)</label>
+                                <input type="number" id="setting-min-delay" value="30">
+                            </div>
+                            <div class="form-group">
+                                <label for="setting-max-delay">Max Ekleme Gecikmesi (sn)</label>
+                                <input type="number" id="setting-max-delay" value="90">
+                            </div>
+                            <div class="form-group">
+                                <label for="setting-daily-limit">Hesap Başına Günlük Sınır</label>
+                                <input type="number" id="setting-daily-limit" value="30">
+                            </div>
+                        </div>
+                        <button class="btn btn-primary" id="btn-save-settings"><i class="fa-solid fa-floppy-disk"></i> Ayarları Kaydet</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Accounts Tab -->
+            <section id="tab-accounts" class="tab-content">
+                <header class="tab-header">
+                    <h1>Hesap Yönetimi</h1>
+                    <p>Telegram numaralarınızı bağlayın, rotasyon için API anahtarlarını tanımlayın.</p>
+                </header>
+
+                <div class="accounts-layout">
+                    <!-- Add Account Panel -->
+                    <div class="card glass-panel">
+                        <h3><i class="fa-solid fa-user-plus card-icon"></i> Yeni Hesap Ekle</h3>
+                        <div class="account-form" id="login-form-container">
+                            <!-- Step 1: Input API & Phone -->
+                            <div id="login-step-1">
+                                <div class="form-group">
+                                    <label for="acc-phone">Telefon Numarası (Ülke kodu ile, örn: +90532xxxxxxx)</label>
+                                    <input type="text" id="acc-phone" placeholder="+90532xxxxxxx">
+                                </div>
+                                <div class="form-group-row">
+                                    <div class="form-group">
+                                        <label for="acc-api-id">API ID</label>
+                                        <input type="number" id="acc-api-id" placeholder="123456">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="acc-api-hash">API Hash</label>
+                                        <input type="text" id="acc-api-hash" placeholder="abcdef0123456789...">
+                                    </div>
+                                </div>
+                                <button class="btn btn-primary" id="btn-start-login">
+                                    <i class="fa-solid fa-paper-plane"></i> Giriş Kodunu Gönder
+                                </button>
+                            </div>
+
+                            <!-- Step 2: Input OTP & 2FA Code (Hidden initially) -->
+                            <div id="login-step-2" class="hidden">
+                                <div class="form-group">
+                                    <label for="acc-code">Telegram Doğrulama Kodu</label>
+                                    <input type="text" id="acc-code" placeholder="12345">
+                                </div>
+                                <div class="form-group">
+                                    <label for="acc-2fa">İki Aşamalı Şifre (İsteğe Bağlı)</label>
+                                    <input type="password" id="acc-2fa" placeholder="2FA Şifreniz">
+                                </div>
+                                <button class="btn btn-success" id="btn-complete-login">
+                                    <i class="fa-solid fa-right-to-bracket"></i> Girişi Tamamla
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Accounts List -->
+                    <div class="card glass-panel">
+                        <h3><i class="fa-solid fa-list-check card-icon"></i> Ekli Hesaplar</h3>
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Telefon</th>
+                                        <th>API ID</th>
+                                        <th>Durum</th>
+                                        <th>Bekleme</th>
+                                        <th>İşlem</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="accounts-list-body">
+                                    <!-- Dynamic content -->
+                                    <tr><td colspan="5" class="text-center">Yükleniyor...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Scraper Tab -->
+            <section id="tab-scraper" class="tab-content">
+                <header class="tab-header">
+                    <h1>Üye Çekici</h1>
+                    <p>İstediğiniz gruptan (açık veya gizli) aktif üyelerin kullanıcı adlarını ve ID'lerini çekin.</p>
+                </header>
+
+                <div class="scraper-layout">
+                    <div class="card glass-panel">
+                        <h3><i class="fa-solid fa-users-viewfinder card-icon"></i> Üye Çekme Ayarları</h3>
+                        <div class="form-group">
+                            <label for="scrape-target">Kaynak Grup (Kullanıcı adı veya Davet Linki, örn: @grupadi veya t.me/joinchat/...)</label>
+                            <input type="text" id="scrape-target" placeholder="@hedefgrup">
+                        </div>
+                        <div class="form-group-row">
+                            <div class="form-group">
+                                <label for="scrape-account">İşlem Yapacak Hesap</label>
+                                <select id="scrape-account">
+                                    <!-- Dynamic content -->
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="scrape-filter">Etkinlik Filtresi</label>
+                                <select id="scrape-filter">
+                                    <option value="9999">Tüm Üyeler</option>
+                                    <option value="1">Son 24 Saatte Aktif</option>
+                                    <option value="3">Son 3 Günde Aktif</option>
+                                    <option value="7">Son 1 Haftada Aktif</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-checkbox">
+                            <input type="checkbox" id="scrape-hidden-fallback" checked>
+                            <label for="scrape-hidden-fallback">Gizli gruplarda mesaj geçmişinden çek (Sohbet Fallback)</label>
+                        </div>
+                        
+                        <div class="button-group">
+                            <button class="btn btn-primary" id="btn-start-scrape">
+                                <i class="fa-solid fa-play"></i> Çekimi Başlat
+                            </button>
+                            <button class="btn btn-danger hidden" id="btn-stop-scrape">
+                                <i class="fa-solid fa-stop"></i> Durdur
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Statistics / Info about scraped members -->
+                    <div class="card glass-panel">
+                        <h3><i class="fa-solid fa-address-book card-icon"></i> Veritabanındaki Üyeler</h3>
+                        <div class="db-actions">
+                            <button class="btn btn-outline" id="btn-refresh-members"><i class="fa-solid fa-arrows-rotate"></i> Yenile</button>
+                            <button class="btn btn-outline btn-danger" id="btn-clear-members"><i class="fa-solid fa-trash-can"></i> Temizle</button>
+                        </div>
+                        <div class="scraped-members-summary">
+                            <div class="summary-item">
+                                <span class="summary-label">Toplam Kayıt:</span>
+                                <strong id="db-total-members">0</strong>
+                            </div>
+                            <div class="summary-item">
+                                <span class="summary-label">Ekleme Bekleyen:</span>
+                                <strong id="db-pending-members">0</strong>
+                            </div>
+                        </div>
+                        <div class="table-responsive max-h-300">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>User ID</th>
+                                        <th>Kullanıcı Adı</th>
+                                        <th>Ad Soyad</th>
+                                        <th>Son Görülme</th>
+                                        <th>Durum</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="scraped-members-body">
+                                    <!-- Dynamic content -->
+                                    <tr><td colspan="5" class="text-center">Kayıtlı üye yok.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Adder Tab -->
+            <section id="tab-adder" class="tab-content">
+                <header class="tab-header">
+                    <h1>Üye Ekleme Otomasyonu</h1>
+                    <p>Çektiğiniz aktif üyeleri, seçtiğiniz hesapları sırayla kullanarak kendi grubunuza ekleyin.</p>
+                </header>
+
+                <div class="card glass-panel">
+                    <h3><i class="fa-solid fa-person-circle-plus card-icon"></i> Ekleme Kampanyası Ayarları</h3>
+                    <div class="form-group">
+                        <label for="add-target">Kendi Grubunuz (Davet linki veya @grubunuz)</label>
+                        <input type="text" id="add-target" placeholder="@kendigrubunuz">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Ekleme İşleminde Kullanılacak Hesaplar</label>
+                        <div class="account-checkbox-list" id="adder-accounts-checkboxes">
+                            <!-- Dynamic checkboxes -->
+                            <p class="text-muted">Önce hesap eklemelisiniz.</p>
+                        </div>
+                    </div>
+
+                    <div class="form-group-row">
+                        <div class="form-group">
+                            <label for="add-min-delay">Min Gecikme (sn)</label>
+                            <input type="number" id="add-min-delay" value="30">
+                        </div>
+                        <div class="form-group">
+                            <label for="add-max-delay">Max Gecikme (sn)</label>
+                            <input type="number" id="add-max-delay" value="90">
+                        </div>
+                        <div class="form-group">
+                            <label for="add-daily-limit">Hesap Başına Günlük Limit</label>
+                            <input type="number" id="add-daily-limit" value="30">
+                        </div>
+                    </div>
+
+                    <div class="button-group">
+                        <button class="btn btn-primary" id="btn-start-add">
+                            <i class="fa-solid fa-play"></i> Ekleme İşlemini Başlat
+                        </button>
+                        <button class="btn btn-danger hidden" id="btn-stop-add">
+                            <i class="fa-solid fa-circle-stop"></i> İşlemi Durdur
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Messaging Tab -->
+            <section id="tab-messaging" class="tab-content">
+                <header class="tab-header">
+                    <h1>Toplu Mesaj Gönderme</h1>
+                    <p>Çektiğiniz üyelere veya belirli gruplara otomatik reklam/mesaj gönderin.</p>
+                </header>
+
+                <div class="card glass-panel">
+                    <h3><i class="fa-solid fa-message card-icon"></i> Kampanya Yapılandırması</h3>
+                    <div class="messaging-layout">
+                        <div class="msg-col-left">
+                            <div class="form-group">
+                                <label for="msg-targets">Hedefler (Kullanıcı Adları veya Gruplar, Her satıra bir adet, örn: @kullanici)</label>
+                                <textarea id="msg-targets" rows="8" placeholder="@hedef1&#10;@hedef2&#10;@hedefgrup"></textarea>
+                            </div>
+                            <button class="btn btn-outline" id="btn-load-pending-msg">
+                                <i class="fa-solid fa-download"></i> Kayıtlı Üyeleri Hedefe Aktar
+                            </button>
+                        </div>
+                        
+                        <div class="msg-col-right">
+                            <div class="form-group">
+                                <label for="msg-text">Mesaj İçeriği</label>
+                                <textarea id="msg-text" rows="8" placeholder="Mesajınızı buraya yazın..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Mesaj Gönderiminde Kullanılacak Hesaplar</label>
+                        <div class="account-checkbox-list" id="msg-accounts-checkboxes">
+                            <!-- Dynamic checkboxes -->
+                        </div>
+                    </div>
+
+                    <div class="form-group-row">
+                        <div class="form-group">
+                            <label for="msg-min-delay">Min Gecikme (sn)</label>
+                            <input type="number" id="msg-min-delay" value="20">
+                        </div>
+                        <div class="form-group">
+                            <label for="msg-max-delay">Max Gecikme (sn)</label>
+                            <input type="number" id="msg-max-delay" value="60">
+                        </div>
+                        <div class="form-group">
+                            <label for="msg-daily-limit">Hesap Başına Günlük Limit</label>
+                            <input type="number" id="msg-daily-limit" value="50">
+                        </div>
+                    </div>
+
+                    <div class="button-group">
+                        <button class="btn btn-primary" id="btn-start-send">
+                            <i class="fa-solid fa-paper-plane"></i> Gönderimi Başlat
+                        </button>
+                        <button class="btn btn-danger hidden" id="btn-stop-send">
+                            <i class="fa-solid fa-circle-stop"></i> İşlemi Durdur
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Auto Post Tab -->
+            <section id="tab-autopost" class="tab-content">
+                <header class="tab-header">
+                    <h1>Otomatik Paylaşım (Auto Poster)</h1>
+                    <p>Seçtiğiniz hesaplarla, katıldığınız gruplara veya belirli hedeflere belirli dakika aralıklarında otomatik mesaj gönderin.</p>
+                </header>
+
+                <div class="card glass-panel">
+                    <h3><i class="fa-solid fa-clock card-icon"></i> Kampanya Yapılandırması</h3>
+                    <div class="messaging-layout">
+                        <div class="msg-col-left">
+                            <div class="form-checkbox" style="margin-bottom: 15px;">
+                                <input type="checkbox" id="autopost-all-joined" checked>
+                                <label for="autopost-all-joined">Sadece Katıldığım Gruplara Gönder (Hedefleri yoksay)</label>
+                            </div>
+                            <div class="form-group" id="autopost-targets-container" style="display: none;">
+                                <label for="autopost-targets">Hedefler (Kullanıcı Adları veya Grup Linkleri, Her satıra bir adet, örn: @grupadi)</label>
+                                <textarea id="autopost-targets" rows="6" placeholder="@hedefgrup1&#10;@hedefgrup2"></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label for="autopost-interval">Gönderim Aralığı (Dakika)</label>
+                                <input type="number" id="autopost-interval" value="30" min="1">
+                            </div>
+                            <div class="form-group" style="margin-top: 15px;">
+                                <label for="autopost-image">Görsel Ekle (İsteğe bağlı)</label>
+                                <input type="file" id="autopost-image" accept="image/*">
+                            </div>
+                        </div>
+                        
+                        <div class="msg-col-right">
+                            <div class="form-group">
+                                <label for="autopost-text">Genel / Varsayılan Mesaj (Özel mesajı olmayan hesaplar için)</label>
+                                <textarea id="autopost-text" rows="8" placeholder="Genel mesajınızı buraya yazın... 🚀🔥📣"></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Paylaşımda Kullanılacak Hesaplar & Özel Mesaj Ayarları</label>
+                        <p class="text-muted" style="font-size: 13px; margin-bottom: 10px;">Her numara için aşağıdan bağımsız özel mesaj ve görsel belirleyebilirsiniz. Boş bırakılan hesaplar için yukarıdaki genel mesaj kullanılır.</p>
+                        <div id="autopost-accounts-container">
+                            <!-- Dynamic account cards -->
+                        </div>
+                    </div>
+
+                    <div class="button-group">
+                        <button class="btn btn-primary" id="btn-start-autopost">
+                            <i class="fa-solid fa-play"></i> Paylaşımı Başlat
+                        </button>
+                        <button class="btn btn-danger hidden" id="btn-stop-autopost">
+                            <i class="fa-solid fa-circle-stop"></i> Paylaşımı Durdur
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Floating Terminal Console -->
+            <footer class="console-panel glass-panel">
+                <div class="console-header">
+                    <h4><i class="fa-solid fa-terminal console-icon"></i> Canlı İşlem Günlüğü (Console)</h4>
+                    <div class="console-actions">
+                        <button class="console-btn" id="btn-clear-console" title="Konsolu Temizle">
+                            <i class="fa-solid fa-ban"></i> Temizle
+                        </button>
+                    </div>
+                </div>
+                <div class="console-logs" id="console-logs-output">
+                    <div class="log-line text-muted">[Sistem] Konsol başlatıldı. İşlemlerinizin logları burada canlı akacaktır.</div>
+                </div>
+            </footer>
+        </main>
+    </div>
+
+    <!-- UI Overlay for API actions -->
+    <div id="ui-toast-container"></div>
+
+    <script src="static/app.js?v=2"></script>
+</body>
+</html>

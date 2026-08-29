@@ -1,0 +1,28 @@
+﻿# Python
+__pycache__/
+*.py[cod]
+*.class
+*.env
+venv/
+.venv/
+
+# Sensitive Telegram Sessions & Database
+backend/sessions/
+*.session
+*.session-journal
+backend/data.db
+backend/data.db-wal
+backend/data.db-shm
+*.db
+*.db-wal
+*.db-shm
+
+# Uploads
+backend/uploads/
+uploads/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
