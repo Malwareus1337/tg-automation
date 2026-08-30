@@ -121,12 +121,33 @@ async def login_complete(req: LoginCompleteRequest):
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.delete("/api/accounts/{phone}")
-def delete_account(phone: str):
+async def delete_account(phone: str):
     try:
+        await TelegramManager.close_client(phone)
         db.delete_account(phone)
         return {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/accounts/{phone}/check")
+async def check_account(phone: str):
+    try:
+        res = await TelegramManager.check_account_status(phone)
+        return res
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/accounts/check-all")
+async def check_all_accounts():
+    accounts = db.get_accounts()
+    results = []
+    for acc in accounts:
+        try:
+            res = await TelegramManager.check_account_status(acc["phone"])
+            results.append(res)
+        except Exception as e:
+            results.append({"phone": acc["phone"], "status": "error", "message": str(e)})
+    return results
 
 @app.get("/api/settings")
 def get_settings():

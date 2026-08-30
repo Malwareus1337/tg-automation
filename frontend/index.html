@@ -160,7 +160,12 @@
 
                     <!-- Accounts List -->
                     <div class="card glass-panel">
-                        <h3><i class="fa-solid fa-list-check card-icon"></i> Ekli Hesaplar</h3>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                            <h3 style="margin-bottom: 0;"><i class="fa-solid fa-list-check card-icon"></i> Ekli Hesaplar</h3>
+                            <button class="btn btn-outline btn-primary btn-sm" id="btn-check-all-accounts" style="padding: 6px 12px; font-size: 13px;">
+                                <i class="fa-solid fa-rotate"></i> Tümünü Kontrol Et
+                            </button>
+                        </div>
                         <div class="table-responsive">
                             <table class="data-table">
                                 <thead>
@@ -451,6 +456,6 @@
     <!-- UI Overlay for API actions -->
     <div id="ui-toast-container"></div>
 
-    <script src="static/app.js?v=2"></script>
+    <script src="static/app.js?v=3"></script>
 </body>
 </html>

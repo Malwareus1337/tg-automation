@@ -213,6 +213,9 @@ async function loadAccounts() {
                 <td>${statusBadge}</td>
                 <td>${floodWaitMin}</td>
                 <td>
+                    <button class="btn btn-outline btn-primary btn-sm" onclick="checkAccount('${acc.phone}')" style="padding: 4px 8px; font-size: 12px; margin-right: 4px;" title="Hesabı Yeniden Kontrol Et">
+                        <i class="fa-solid fa-rotate"></i> Kontrol Et
+                    </button>
                     <button class="btn btn-outline btn-danger btn-sm" onclick="deleteAccount('${acc.phone}')" style="padding: 4px 8px; font-size: 12px;">
                         <i class="fa-solid fa-trash"></i> Sil
                     </button>
@@ -264,6 +267,47 @@ async function loadAccounts() {
         });
     } catch(e) {
         console.error("Accounts load error:", e);
+    }
+}
+
+// Check Single Account Status
+async function checkAccount(phone) {
+    showToast(`${phone} durumu kontrol ediliyor...`, "info");
+    try {
+        const res = await fetch(`${API_BASE}/api/accounts/${phone}/check`, { method: 'POST' });
+        const data = await res.json();
+        if (res.ok) {
+            if (data.status === 'active') {
+                showToast(data.message || "Hesap aktif ve çalışır durumda!", "success");
+            } else {
+                showToast(data.message || "Hesaba giriş yapılamadı.", "warning");
+            }
+            loadAccounts();
+            loadStats();
+        } else {
+            showToast(data.detail || "Kontrol sırasında hata oluştu.", "error");
+        }
+    } catch(e) {
+        showToast("Ağ hatası oluştu.", "error");
+    }
+}
+
+// Check All Accounts Status
+async function checkAllAccounts() {
+    showToast("Tüm hesaplar kontrol ediliyor...", "info");
+    try {
+        const res = await fetch(`${API_BASE}/api/accounts/check-all`, { method: 'POST' });
+        if (res.ok) {
+            const results = await res.json();
+            const activeCount = results.filter(r => r.status === 'active').length;
+            showToast(`Kontrol tamamlandı: ${activeCount}/${results.length} hesap aktif!`, "success");
+            loadAccounts();
+            loadStats();
+        } else {
+            showToast("Toplu kontrol başarısız oldu.", "error");
+        }
+    } catch(e) {
+        showToast("Ağ hatası oluştu.", "error");
     }
 }
 
@@ -491,6 +535,12 @@ function bindEvents() {
             showToast("Bağlantı hatası.", "error");
         }
     });
+
+    // Check All Accounts Button
+    const btnCheckAll = document.getElementById('btn-check-all-accounts');
+    if (btnCheckAll) {
+        btnCheckAll.addEventListener('click', checkAllAccounts);
+    }
 
     // 4. Scraper DB Management
     document.getElementById('btn-refresh-members').addEventListener('click', () => {

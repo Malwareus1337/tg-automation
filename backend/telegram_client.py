@@ -148,6 +148,32 @@ class TelegramManager:
                 pass
 
     @staticmethod
+    async def check_account_status(phone):
+        accounts = db.get_accounts()
+        acc = next((a for a in accounts if a["phone"] == phone), None)
+        if not acc:
+            raise ValueError("Hesap bulunamadı.")
+            
+        client = await TelegramManager.ensure_connected(acc)
+        if not await client.is_user_authorized():
+            db.update_account_status(phone, "need_login")
+            return {"phone": phone, "status": "need_login", "message": "Oturum süresi dolmuş veya giriş yapılmamış."}
+            
+        me = await client.get_me()
+        if not me:
+            db.update_account_status(phone, "need_login")
+            return {"phone": phone, "status": "need_login", "message": "Kullanıcı bilgisi alınamadı."}
+            
+        # Account is authorized and alive! Reset status to active
+        db.update_account_status(phone, "active", 0)
+        return {
+            "phone": phone,
+            "status": "active",
+            "username": me.username or me.first_name,
+            "message": f"Hesap aktif ve sorunsuz çalışıyor! ({me.first_name or me.username})"
+        }
+
+    @staticmethod
     async def scrape_group(account_phone, group_link, filter_days=None, hidden_member_fallback=False, log_callback=None):
         accounts = db.get_accounts()
         acc = next((a for a in accounts if a["phone"] == account_phone), None)

@@ -82,7 +82,12 @@ class Database:
             conn.commit()
             
     def get_accounts(self):
+        now = int(time.time())
         with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE accounts SET status = 'active', flood_until = 0 WHERE status = 'flood_wait' AND flood_until <= ?", (now,))
+            conn.commit()
+            
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM accounts")
