@@ -97,6 +97,7 @@ class IntervalPostRequest(BaseModel):
     image_path: Optional[str] = None
     account_messages: Optional[Dict[str, str]] = None
     account_images: Optional[Dict[str, str]] = None
+    account_targets: Optional[Dict[str, List[str]]] = None
 
 
 # REST Endpoints
@@ -276,15 +277,18 @@ async def run_interval_post_task(req: IntervalPostRequest):
         while True:
             for phone in req.phones_to_use:
                 acc = next((a for a in db.get_accounts() if a["phone"] == phone), None)
-                if not acc or acc["status"] != "active":
-                    await log_cb(f"[{phone}] Aktif hesap bulunamadı, atlanıyor.")
+                if not acc or acc["status"] == "need_login":
+                    await log_cb(f"[{phone}] Giriş gerekli veya geçersiz hesap, atlanıyor.")
                     continue
                 
                 try:
                     client = await TelegramManager.ensure_connected(acc)
                     if not await client.is_user_authorized():
+                        db.update_account_status(phone, "need_login")
                         await log_cb(f"[{phone}] Yetkilendirme hatası, atlanıyor.")
                         continue
+                    
+                    db.update_account_status(phone, "active", 0)
                     
                     # Resolve phone specific message and image, fallback to general
                     phone_msg = (req.account_messages.get(phone) if req.account_messages and req.account_messages.get(phone) else req.message_text) or ""
@@ -306,7 +310,8 @@ async def run_interval_post_task(req: IntervalPostRequest):
                         except Exception as e:
                             await log_cb(f"[{phone}] Katılınan grupları çekme hatası: {str(e)}")
                     else:
-                        for t in req.targets:
+                        phone_targets = (req.account_targets.get(phone) if req.account_targets and req.account_targets.get(phone) else req.targets) or []
+                        for t in phone_targets:
                             t = t.strip()
                             if t:
                                 try:

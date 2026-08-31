@@ -302,17 +302,22 @@ class TelegramManager:
         
         for phone in phones_to_use:
             acc = next((a for a in db.get_accounts() if a["phone"] == phone), None)
-            if acc and acc["status"] == "active":
-                client = await TelegramManager.ensure_connected(acc)
-                if await client.is_user_authorized():
-                    clients[phone] = client
-                    account_status[phone] = 0
+            if acc and acc["status"] != "need_login":
+                try:
+                    client = await TelegramManager.ensure_connected(acc)
+                    if await client.is_user_authorized():
+                        clients[phone] = client
+                        account_status[phone] = 0
+                        db.update_account_status(phone, "active", 0)
+                        if log_callback:
+                            await log_callback(f"Hesap bağlandı ve doğrulandı: {phone}")
+                    else:
+                        db.update_account_status(phone, "need_login")
+                        if log_callback:
+                            await log_callback(f"Hesap yetkilendirmesi geçersiz: {phone}")
+                except Exception as e:
                     if log_callback:
-                        await log_callback(f"Hesap bağlandı: {phone}")
-                else:
-                    db.update_account_status(phone, "need_login")
-                    if log_callback:
-                        await log_callback(f"Hesap yetkilendirmesi geçersiz: {phone}")
+                        await log_callback(f"Hesap bağlantı hatası ({phone}): {str(e)}")
                         
         if not clients:
             raise ValueError("Kullanılabilir aktif hesap kalmadı.")
@@ -431,13 +436,17 @@ class TelegramManager:
         
         for phone in phones_to_use:
             acc = next((a for a in db.get_accounts() if a["phone"] == phone), None)
-            if acc and acc["status"] == "active":
-                client = await TelegramManager.ensure_connected(acc)
-                if await client.is_user_authorized():
-                    clients[phone] = client
-                    account_status[phone] = 0
-                else:
-                    db.update_account_status(phone, "need_login")
+            if acc and acc["status"] != "need_login":
+                try:
+                    client = await TelegramManager.ensure_connected(acc)
+                    if await client.is_user_authorized():
+                        clients[phone] = client
+                        account_status[phone] = 0
+                        db.update_account_status(phone, "active", 0)
+                    else:
+                        db.update_account_status(phone, "need_login")
+                except Exception:
+                    pass
                     
         if not clients:
             raise ValueError("Kullanılabilir aktif hesap kalmadı.")

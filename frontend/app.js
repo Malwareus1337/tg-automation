@@ -249,13 +249,18 @@ async function loadAccounts() {
                 card.innerHTML = `
                     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
                         <label style="display: flex; align-items: center; gap: 8px; font-weight: 600; cursor: pointer;">
-                            <input type="checkbox" class="autopost-acc-checkbox" value="${acc.phone}" ${acc.status === 'active' ? 'checked' : 'disabled'}>
-                            <span>📱 ${acc.phone} (${acc.status === 'active' ? 'Aktif' : 'Pasif'})</span>
+                            <input type="checkbox" class="autopost-acc-checkbox" value="${acc.phone}" ${acc.status !== 'need_login' ? 'checked' : 'disabled'}>
+                            <span>📱 ${acc.phone} (${acc.status === 'active' ? 'Aktif' : acc.status})</span>
                         </label>
-                        <span class="text-muted" style="font-size: 12px;">Numaraya Özel Mesaj</span>
+                        <span class="text-muted" style="font-size: 12px;">Numaraya Özel Ayarlar</span>
                     </div>
                     <div style="margin-top: 6px;">
-                        <textarea class="autopost-acc-msg" data-phone="${acc.phone}" rows="3" placeholder="${acc.phone} için özel mesaj (boş bırakılırsa yukarıdaki genel mesaj kullanılır)..." style="width: 100%; border-radius: 6px; padding: 8px; font-size: 13px; margin-bottom: 6px; box-sizing: border-box;"></textarea>
+                        <label style="font-size: 12px; color: var(--text-muted, #aaa); display: block; margin-bottom: 3px;">Özel Mesaj (Boşsa genel mesaj kullanılır):</label>
+                        <textarea class="autopost-acc-msg" data-phone="${acc.phone}" rows="2" placeholder="${acc.phone} için özel mesaj içeriği..." style="width: 100%; border-radius: 6px; padding: 8px; font-size: 13px; margin-bottom: 6px; box-sizing: border-box;"></textarea>
+                        
+                        <label style="font-size: 12px; color: var(--text-muted, #aaa); display: block; margin-bottom: 3px;">Özel Hedef Kanallar/Gruplar (Boşsa soldaki genel hedefler kullanılır):</label>
+                        <textarea class="autopost-acc-targets" data-phone="${acc.phone}" rows="2" placeholder="Her satıra bir adet @grup veya https://t.me/... linki" style="width: 100%; border-radius: 6px; padding: 8px; font-size: 13px; margin-bottom: 6px; box-sizing: border-box;"></textarea>
+                        
                         <div style="display: flex; align-items: center; gap: 8px;">
                             <label style="font-size: 12px; color: var(--text-muted, #aaa);">Özel Görsel:</label>
                             <input type="file" class="autopost-acc-img" data-phone="${acc.phone}" accept="image/*" style="font-size: 12px;">
@@ -774,11 +779,17 @@ function bindEvents() {
                 // 2. Collect per-account messages and upload per-account images
                 const account_messages = {};
                 const account_images = {};
+                const account_targets = {};
 
                 for (const phone of phones) {
                     const msgEl = document.querySelector(`.autopost-acc-msg[data-phone="${phone}"]`);
                     if (msgEl && msgEl.value.trim()) {
                         account_messages[phone] = msgEl.value.trim();
+                    }
+                    
+                    const targetsEl = document.querySelector(`.autopost-acc-targets[data-phone="${phone}"]`);
+                    if (targetsEl && targetsEl.value.trim()) {
+                        account_targets[phone] = targetsEl.value.trim().split('\n').map(t => t.trim()).filter(t => t.length > 0);
                     }
                     
                     const imgEl = document.querySelector(`.autopost-acc-img[data-phone="${phone}"]`);
@@ -814,7 +825,8 @@ function bindEvents() {
                         send_to_all_joined: allJoined,
                         image_path: general_image_path,
                         account_messages: account_messages,
-                        account_images: account_images
+                        account_images: account_images,
+                        account_targets: account_targets
                     })
                 });
                 
