@@ -752,31 +752,10 @@ function bindEvents() {
                 showToast("Lütfen geçerli bir dakika aralığı girin.", "error");
                 return;
             }
-            if (!allJoined && !targetsVal) {
-                showToast("Lütfen hedef grupları girin veya 'Sadece Katıldığım Gruplara Gönder' seçeneğini seçin.", "error");
-                return;
-            }
-            
             const targets = allJoined ? [] : targetsVal.split('\n').map(t => t.trim()).filter(t => t.length > 0);
             
             try {
-                // 1. Upload general image if provided
-                let general_image_path = null;
-                if (generalImageInput && generalImageInput.files.length > 0) {
-                    showToast("Genel görsel yükleniyor...", "info");
-                    const formData = new FormData();
-                    formData.append("file", generalImageInput.files[0]);
-                    const uploadRes = await fetch(`${API_BASE}/api/upload`, {
-                        method: 'POST',
-                        body: formData
-                    });
-                    if (uploadRes.ok) {
-                        const uploadData = await uploadRes.json();
-                        general_image_path = uploadData.file_path;
-                    }
-                }
-
-                // 2. Collect per-account messages and upload per-account images
+                // 1. Collect per-account messages, targets and upload per-account images
                 const account_messages = {};
                 const account_images = {};
                 const account_targets = {};
@@ -805,6 +784,28 @@ function bindEvents() {
                             const uploadData = await uploadRes.json();
                             account_images[phone] = uploadData.file_path;
                         }
+                    }
+                }
+
+                // Validate targets: general targets OR per-account targets OR allJoined
+                if (!allJoined && targets.length === 0 && Object.keys(account_targets).length === 0) {
+                    showToast("Lütfen hedef grupları girin, hesaplara özel hedef liste tanımlayın veya 'Sadece Katıldığım Gruplara Gönder' seçeneğini seçin.", "error");
+                    return;
+                }
+
+                // 2. Upload general image if provided
+                let general_image_path = null;
+                if (generalImageInput && generalImageInput.files.length > 0) {
+                    showToast("Genel görsel yükleniyor...", "info");
+                    const formData = new FormData();
+                    formData.append("file", generalImageInput.files[0]);
+                    const uploadRes = await fetch(`${API_BASE}/api/upload`, {
+                        method: 'POST',
+                        body: formData
+                    });
+                    if (uploadRes.ok) {
+                        const uploadData = await uploadRes.json();
+                        general_image_path = uploadData.file_path;
                     }
                 }
 

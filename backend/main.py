@@ -90,7 +90,7 @@ class SendTaskRequest(BaseModel):
 
 class IntervalPostRequest(BaseModel):
     phones_to_use: List[str]
-    targets: List[str]
+    targets: Optional[List[str]] = []
     message_text: Optional[str] = ""
     interval_minutes: int
     send_to_all_joined: bool = False
