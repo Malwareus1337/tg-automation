@@ -399,9 +399,25 @@
                                 <label for="autopost-targets">Hedefler (Kullanıcı Adları veya Grup Linkleri, Her satıra bir adet, örn: @grupadi)</label>
                                 <textarea id="autopost-targets" rows="6" placeholder="@hedefgrup1&#10;@hedefgrup2"></textarea>
                             </div>
-                            <div class="form-group">
-                                <label for="autopost-interval">Gönderim Aralığı (Dakika)</label>
-                                <input type="number" id="autopost-interval" value="30" min="1">
+                            <div class="form-group-row">
+                                <div class="form-group">
+                                    <label for="autopost-min-interval">Min Döngü Aralığı (Dakika)</label>
+                                    <input type="number" id="autopost-min-interval" value="20" min="1">
+                                </div>
+                                <div class="form-group">
+                                    <label for="autopost-max-interval">Max Döngü Aralığı (Dakika)</label>
+                                    <input type="number" id="autopost-max-interval" value="40" min="1">
+                                </div>
+                            </div>
+                            <div class="form-group-row" style="margin-top: 10px;">
+                                <div class="form-group">
+                                    <label for="autopost-min-delay">Gruplar Arası Min Gecikme (sn)</label>
+                                    <input type="number" id="autopost-min-delay" value="10" min="1">
+                                </div>
+                                <div class="form-group">
+                                    <label for="autopost-max-delay">Gruplar Arası Max Gecikme (sn)</label>
+                                    <input type="number" id="autopost-max-delay" value="30" min="1">
+                                </div>
                             </div>
                             <div class="form-group" style="margin-top: 15px;">
                                 <label for="autopost-image">Görsel Ekle (İsteğe bağlı)</label>
@@ -456,6 +472,6 @@
     <!-- UI Overlay for API actions -->
     <div id="ui-toast-container"></div>
 
-    <script src="static/app.js?v=5"></script>
+    <script src="static/app.js?v=6"></script>
 </body>
 </html>

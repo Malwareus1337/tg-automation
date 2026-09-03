@@ -736,7 +736,11 @@ function bindEvents() {
 
         document.getElementById('btn-start-autopost').addEventListener('click', async () => {
             const generalText = document.getElementById('autopost-text').value.trim();
-            const interval = parseInt(document.getElementById('autopost-interval').value);
+            const minInterval = parseInt(document.getElementById('autopost-min-interval')?.value || '20');
+            const maxInterval = parseInt(document.getElementById('autopost-max-interval')?.value || '40');
+            const minDelay = parseInt(document.getElementById('autopost-min-delay')?.value || '10');
+            const maxDelay = parseInt(document.getElementById('autopost-max-delay')?.value || '30');
+
             const allJoined = document.getElementById('autopost-all-joined').checked;
             const targetsVal = document.getElementById('autopost-targets').value.trim();
             const generalImageInput = document.getElementById('autopost-image');
@@ -748,7 +752,7 @@ function bindEvents() {
                 showToast("Lütfen en az bir aktif hesap seçin.", "error");
                 return;
             }
-            if (!interval || interval < 1) {
+            if (isNaN(minInterval) || minInterval < 1 || isNaN(maxInterval) || maxInterval < 1) {
                 showToast("Lütfen geçerli bir dakika aralığı girin.", "error");
                 return;
             }
@@ -822,7 +826,11 @@ function bindEvents() {
                         phones_to_use: phones,
                         targets,
                         message_text: generalText,
-                        interval_minutes: interval,
+                        interval_minutes: minInterval,
+                        min_interval_minutes: minInterval,
+                        max_interval_minutes: maxInterval,
+                        min_delay: minDelay,
+                        max_delay: maxDelay,
                         send_to_all_joined: allJoined,
                         image_path: general_image_path,
                         account_messages: account_messages,

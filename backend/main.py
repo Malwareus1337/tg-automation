@@ -92,7 +92,11 @@ class IntervalPostRequest(BaseModel):
     phones_to_use: List[str]
     targets: Optional[List[str]] = []
     message_text: Optional[str] = ""
-    interval_minutes: int
+    interval_minutes: Optional[int] = 30
+    min_interval_minutes: Optional[int] = None
+    max_interval_minutes: Optional[int] = None
+    min_delay: Optional[int] = 5
+    max_delay: Optional[int] = 15
     send_to_all_joined: bool = False
     image_path: Optional[str] = None
     account_messages: Optional[Dict[str, str]] = None
@@ -272,7 +276,23 @@ async def run_interval_post_task(req: IntervalPostRequest):
         
     try:
         import random
-        await log_cb(f"Otomatik paylaşım görevi başlatıldı. Aralık: {req.interval_minutes} dakika.")
+
+        # Resolve intervals (minutes)
+        min_int = req.min_interval_minutes or req.interval_minutes or 30
+        max_int = req.max_interval_minutes or req.interval_minutes or min_int
+        if max_int < min_int:
+            min_int, max_int = max_int, min_int
+
+        # Resolve delays between targets (seconds)
+        min_del = req.min_delay if req.min_delay is not None else 5
+        max_del = req.max_delay if req.max_delay is not None else 15
+        if max_del < min_del:
+            min_del, max_del = max_del, min_del
+
+        if min_int == max_int:
+            await log_cb(f"Otomatik paylaşım görevi başlatıldı. Aralık: {min_int} dakika | Gruplar arası gecikme: {min_del}-{max_del} sn.")
+        else:
+            await log_cb(f"Otomatik paylaşım görevi başlatıldı. Rastgele Aralık: {min_int}-{max_int} dakika | Gruplar arası gecikme: {min_del}-{max_del} sn.")
         
         while True:
             for phone in req.phones_to_use:
@@ -335,8 +355,10 @@ async def run_interval_post_task(req: IntervalPostRequest):
                             else:
                                 if phone_msg:
                                     await client.send_message(target, phone_msg)
-                            await log_cb(f"[{phone}] -> '{t_name}' grubuna mesaj başarıyla gönderildi. ✅")
-                            await asyncio.sleep(random.randint(2, 5))
+                            
+                            step_delay = random.randint(min_del, max_del)
+                            await log_cb(f"[{phone}] -> '{t_name}' grubuna mesaj başarıyla gönderildi. ✅ ({step_delay} sn bekleniyor)")
+                            await asyncio.sleep(step_delay)
                         except Exception as e:
                             err_msg = str(e).lower()
                             err_name = type(e).__name__.lower()
@@ -345,8 +367,9 @@ async def run_interval_post_task(req: IntervalPostRequest):
                                     await log_cb(f"[{phone}] -> '{t_name}' grubunda fotoğraf/medya izni yok. Sadece metin gönderiliyor...")
                                     if phone_msg:
                                         await client.send_message(target, phone_msg)
-                                        await log_cb(f"[{phone}] -> '{t_name}' grubuna sadece metin başarıyla gönderildi. ✅")
-                                        await asyncio.sleep(random.randint(2, 5))
+                                        step_delay = random.randint(min_del, max_del)
+                                        await log_cb(f"[{phone}] -> '{t_name}' grubuna sadece metin başarıyla gönderildi. ✅ ({step_delay} sn bekleniyor)")
+                                        await asyncio.sleep(step_delay)
                                 except Exception as text_e:
                                     await log_cb(f"[{phone}] Hata (metin de gönderilemedi): {str(text_e)}")
                             else:
@@ -356,8 +379,9 @@ async def run_interval_post_task(req: IntervalPostRequest):
                 finally:
                     pass
             
-            await log_cb(f"Otomatik paylaşım döngüsü tamamlandı. {req.interval_minutes} dakika bekleniyor...")
-            await asyncio.sleep(req.interval_minutes * 60)
+            next_interval = random.randint(min_int, max_int)
+            await log_cb(f"Otomatik paylaşım döngüsü tamamlandı. Bir sonraki döngü için rastgele {next_interval} dakika bekleniyor...")
+            await asyncio.sleep(next_interval * 60)
             
     except asyncio.CancelledError:
         await log_cb("Otomatik paylaşım görevi durduruldu.")
