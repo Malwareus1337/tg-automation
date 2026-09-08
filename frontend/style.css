@@ -1165,38 +1165,31 @@ textarea:focus {
     left: 0;
     width: 100vw;
     height: 100vh;
-    background: rgba(0, 0, 0, 0.75);
-    backdrop-filter: blur(5px);
-    z-index: 999;
-    display: flex;
+    background: rgba(5, 8, 20, 0.88);
+    z-index: 999999 !important;
+    display: none;
     align-items: center;
     justify-content: center;
-    opacity: 0;
-    visibility: hidden;
-    transition: all 0.25s ease;
+    pointer-events: auto !important;
 }
 
 .modal-overlay.active {
-    opacity: 1;
-    visibility: visible;
+    display: flex !important;
 }
 
 .modal-box {
-    background: rgba(12, 16, 33, 0.96);
-    border: 1px solid var(--border-color);
+    position: relative;
+    z-index: 1000000 !important;
+    pointer-events: auto !important;
+    background: #0d1226 !important;
+    border: 1px solid rgba(0, 240, 255, 0.35) !important;
     border-radius: 14px;
     width: 90%;
-    max-width: 850px;
+    max-width: 900px;
     max-height: 85vh;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.6);
-    transform: scale(0.95);
-    transition: transform 0.25s ease;
-}
-
-.modal-overlay.active .modal-box {
-    transform: scale(1);
+    box-shadow: 0 25px 70px rgba(0, 0, 0, 0.85);
 }
 
 .modal-header {

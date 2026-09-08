@@ -1606,13 +1606,33 @@ function addTgWebFrame() {
 
 let currentModalLinks = [];
 
-async function showAccountChats(phone = null) {
+window.closeAccountChatsModal = function() {
+    const modal = document.getElementById('modal-account-chats');
+    if (modal) {
+        modal.classList.remove('active');
+        modal.style.display = 'none';
+    }
+    // Re-enable pointer events on all Telegram Web iframes
+    document.querySelectorAll('.tgweb-iframe').forEach(f => f.style.pointerEvents = 'auto');
+};
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        window.closeAccountChatsModal();
+    }
+});
+
+window.showAccountChats = async function(phone = null) {
     const modal = document.getElementById('modal-account-chats');
     const modalTitle = document.getElementById('modal-chats-title');
     const modalBody = document.getElementById('modal-chats-body');
     const modalCount = document.getElementById('modal-chats-count');
     if (!modal || !modalBody) return;
 
+    // Temporarily disable pointer events on iframes so they don't capture mouse events or cause compositor freezes
+    document.querySelectorAll('.tgweb-iframe').forEach(f => f.style.pointerEvents = 'none');
+
+    modal.style.display = 'flex';
     modal.classList.add('active');
     currentModalLinks = [];
 
@@ -1620,7 +1640,7 @@ async function showAccountChats(phone = null) {
         modalTitle.textContent = `${phone} - Katılınan Gruplar & Linkler`;
         modalBody.innerHTML = `
             <div style="text-align: center; padding: 40px; color: var(--text-muted);">
-                <i class="fa-solid fa-spinner fa-spin" style="font-size: 32px; margin-bottom: 12px;"></i>
+                <i class="fa-solid fa-spinner fa-spin" style="font-size: 32px; margin-bottom: 12px; color: var(--primary);"></i>
                 <p>${phone} numarasına ait gruplar canlı olarak taranıyor...</p>
             </div>
         `;
@@ -1649,7 +1669,7 @@ async function showAccountChats(phone = null) {
                             <th>Grup / Kanal Adı</th>
                             <th style="width: 90px;">Tür</th>
                             <th>Bağlantı Linki</th>
-                            <th style="width: 80px; text-align: center;">İşlem</th>
+                            <th style="width: 80px; text-align: center;">Kopyala</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1658,17 +1678,17 @@ async function showAccountChats(phone = null) {
             chats.forEach((c, idx) => {
                 if (c.link) currentModalLinks.push(c.link);
                 const linkHtml = c.link 
-                    ? `<a href="${c.link}" target="_blank" class="chat-link-btn"><i class="fa-solid fa-arrow-up-right-from-square"></i> ${c.link}</a>`
+                    ? `<a href="${c.link}" target="_blank" class="chat-link-btn"><i class="fa-solid fa-arrow-up-right-from-square"></i> ${escapeHtml(c.link)}</a>`
                     : `<span class="text-muted"><i class="fa-solid fa-lock"></i> Özel Grup (Link yok)</span>`;
 
                 html += `
                     <tr>
                         <td>${idx + 1}</td>
-                        <td><strong>${c.title}</strong></td>
+                        <td><strong>${escapeHtml(c.title)}</strong></td>
                         <td><span class="badge ${c.type === 'Kanal' ? 'badge-primary' : 'badge-secondary'}">${c.type}</span></td>
                         <td>${linkHtml}</td>
                         <td style="text-align: center;">
-                            ${c.link ? `<button class="btn btn-outline btn-sm" onclick="copyTextToClipboard('${c.link}')" title="Linki Kopyala" style="padding: 2px 7px; font-size: 11px;"><i class="fa-solid fa-copy"></i></button>` : '-'}
+                            ${c.link ? `<button type="button" class="btn btn-outline btn-sm btn-table-copy" data-link="${c.link}" title="Linki Kopyala" style="padding: 3px 8px; font-size: 11px;"><i class="fa-solid fa-copy"></i></button>` : '-'}
                         </td>
                     </tr>
                 `;
@@ -1676,14 +1696,24 @@ async function showAccountChats(phone = null) {
 
             html += `</tbody></table>`;
             modalBody.innerHTML = html;
+
+            // Bind click to copy buttons
+            modalBody.querySelectorAll('.btn-table-copy').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    window.copyTextToClipboard(btn.dataset.link);
+                });
+            });
+
         } catch(e) {
             modalBody.innerHTML = `<div class="text-danger p-4">Ağ hatası oluştu.</div>`;
         }
     } else {
+        // Show ALL accounts and their chats
         modalTitle.textContent = `Tüm Numaraların Katıldığı Gruplar & Linkler`;
         modalBody.innerHTML = `
             <div style="text-align: center; padding: 40px; color: var(--text-muted);">
-                <i class="fa-solid fa-spinner fa-spin" style="font-size: 32px; margin-bottom: 12px;"></i>
+                <i class="fa-solid fa-spinner fa-spin" style="font-size: 32px; margin-bottom: 12px; color: var(--primary);"></i>
                 <p>Tüm aktif hesapların grupları taranıyor...</p>
             </div>
         `;
@@ -1699,10 +1729,10 @@ async function showAccountChats(phone = null) {
                 totalChats += chats.length;
 
                 html += `
-                    <div style="margin-bottom: 24px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: 10px; padding: 14px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <div style="margin-bottom: 24px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); border-radius: 10px; padding: 14px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
                             <h4 style="color: var(--primary);"><i class="fa-solid fa-mobile-screen"></i> ${item.phone} <span style="font-size: 12px; color: var(--text-muted); font-weight: normal;">(${chats.length} Grup/Kanal)</span></h4>
-                            <button class="btn btn-outline btn-sm" onclick="copyAccountLinks('${item.phone}')" style="padding: 3px 8px; font-size: 11.5px;"><i class="fa-solid fa-copy"></i> Bu Numaranın Linklerini Kopyala</button>
+                            <button type="button" class="btn btn-outline btn-sm btn-acc-copy-all" data-phone="${item.phone}" style="padding: 4px 10px; font-size: 11.5px;"><i class="fa-solid fa-copy"></i> Bu Numaranın Linklerini Kopyala</button>
                         </div>
                 `;
 
@@ -1717,7 +1747,7 @@ async function showAccountChats(phone = null) {
                                     <th>Grup / Kanal</th>
                                     <th style="width: 80px;">Tür</th>
                                     <th>Link</th>
-                                    <th style="width: 50px;"></th>
+                                    <th style="width: 60px; text-align: center;">Kopyala</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -1727,10 +1757,10 @@ async function showAccountChats(phone = null) {
                         html += `
                             <tr>
                                 <td>${idx + 1}</td>
-                                <td><strong>${c.title}</strong></td>
+                                <td><strong>${escapeHtml(c.title)}</strong></td>
                                 <td><span class="badge ${c.type === 'Kanal' ? 'badge-primary' : 'badge-secondary'}">${c.type}</span></td>
-                                <td>${c.link ? `<a href="${c.link}" target="_blank" class="chat-link-btn">${c.link}</a>` : '<span class="text-muted">Özel Grup</span>'}</td>
-                                <td>${c.link ? `<button class="btn btn-outline btn-sm" onclick="copyTextToClipboard('${c.link}')" style="padding: 2px 6px; font-size: 11px;"><i class="fa-solid fa-copy"></i></button>` : ''}</td>
+                                <td>${c.link ? `<a href="${c.link}" target="_blank" class="chat-link-btn">${escapeHtml(c.link)}</a>` : '<span class="text-muted">Özel Grup</span>'}</td>
+                                <td style="text-align: center;">${c.link ? `<button type="button" class="btn btn-outline btn-sm btn-table-copy" data-link="${c.link}" style="padding: 2px 7px; font-size: 11px;"><i class="fa-solid fa-copy"></i></button>` : '-'}</td>
                             </tr>
                         `;
                     });
@@ -1742,36 +1772,78 @@ async function showAccountChats(phone = null) {
 
             modalCount.textContent = `Toplam ${totalChats} Grup / Kanal`;
             modalBody.innerHTML = html;
+
+            // Bind click to copy buttons
+            modalBody.querySelectorAll('.btn-table-copy').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    window.copyTextToClipboard(btn.dataset.link);
+                });
+            });
+
+            modalBody.querySelectorAll('.btn-acc-copy-all').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    window.copyAccountLinks(btn.dataset.phone);
+                });
+            });
+
         } catch(e) {
             modalBody.innerHTML = `<div class="text-danger p-4">Gruplar alınırken hata oluştu.</div>`;
         }
     }
-}
+};
 
-function copyTextToClipboard(text) {
+window.copyTextToClipboard = function(text) {
     if (!text) return;
-    navigator.clipboard.writeText(text).then(() => {
-        showToast("Link kopyalandı!", "success");
-    }).catch(() => {
-        showToast("Kopyalanamadı.", "error");
-    });
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+            showToast("Link panoya kopyalandı!", "success");
+        }).catch(() => {
+            fallbackCopy(text);
+        });
+    } else {
+        fallbackCopy(text);
+    }
+};
+
+function fallbackCopy(text) {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.top = "-9999px";
+    ta.style.left = "-9999px";
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    try {
+        const success = document.execCommand('copy');
+        if (success) showToast("Link panoya kopyalandı!", "success");
+        else showToast("Kopyalama başarısız.", "error");
+    } catch (e) {
+        showToast("Kopyalama başarısız.", "error");
+    }
+    document.body.removeChild(ta);
 }
 
-function copyAccountLinks(phone) {
+window.copyAccountLinks = function(phone) {
     fetch(`${API_BASE}/api/accounts/${encodeURIComponent(phone)}/chats`)
         .then(r => r.json())
         .then(data => {
             const links = (data.chats || []).map(c => c.link).filter(Boolean);
             if (links.length > 0) {
-                navigator.clipboard.writeText(links.join('\n'));
-                showToast(`${links.length} adet link kopyalandı!`, "success");
+                const uniqueLinks = [...new Set(links)];
+                window.copyTextToClipboard(uniqueLinks.join('\n'));
+                showToast(`${uniqueLinks.length} adet link kopyalandı!`, "success");
             } else {
-                showToast("Kopyalanacak link bulunamadı.", "warning");
+                showToast("Kopyalanacak bağlantı bulunamadı.", "warning");
             }
         })
         .catch(() => {
             showToast("Linkler kopyalanamadı.", "error");
         });
-}
+};
+
 
 
