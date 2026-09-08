@@ -1040,9 +1040,21 @@ textarea:focus {
 /* Telegram Web Isolated iFrame Grid */
 .tgweb-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(440px, 1fr));
-    gap: 20px;
+    grid-template-columns: repeat(3, minmax(300px, 1fr));
+    gap: 16px;
     margin-bottom: 24px;
+}
+
+.tgweb-grid.cols-2 {
+    grid-template-columns: repeat(2, minmax(360px, 1fr));
+}
+
+.tgweb-grid.cols-3 {
+    grid-template-columns: repeat(3, minmax(300px, 1fr));
+}
+
+.tgweb-grid.cols-4 {
+    grid-template-columns: repeat(4, minmax(260px, 1fr));
 }
 
 .tgweb-card {

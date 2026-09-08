@@ -975,6 +975,19 @@ function bindEvents() {
         });
     }
 
+    document.querySelectorAll('.tgweb-col-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.tgweb-col-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            const cols = btn.dataset.cols;
+            const grid = document.getElementById('tgweb-frames-grid');
+            if (grid) {
+                grid.classList.remove('cols-2', 'cols-3', 'cols-4');
+                grid.classList.add(`cols-${cols}`);
+            }
+        });
+    });
+
     // Auto-init Telegram Web frames on start
     setupTgWebFrames();
 
@@ -1443,7 +1456,8 @@ function setupTgWebFrames() {
     const grid = document.getElementById('tgweb-frames-grid');
     if (!grid || grid.children.length > 0) return;
 
-    // Open initial 2 isolated Telegram Web frames
+    // Open initial 3 isolated Telegram Web frames
+    addTgWebFrame();
     addTgWebFrame();
     addTgWebFrame();
 }

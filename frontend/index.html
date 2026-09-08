@@ -485,8 +485,13 @@
                             <span class="text-muted" style="font-size: 13px;">Her pencere bağımsız bir Telegram Web olarak çalışır. Ayarlar, bio, fotoğraf ve tüm Telegram özelliklerini eksiksiz kullanabilirsiniz.</span>
                         </div>
                         <div style="display: flex; align-items: center; gap: 8px;">
+                            <div class="view-toggle-group">
+                                <button class="btn btn-outline btn-sm tgweb-col-btn" data-cols="2" title="Yan Yana 2 Pencere">2'li</button>
+                                <button class="btn btn-outline btn-sm tgweb-col-btn active" data-cols="3" title="Yan Yana 3 Pencere">3'lü</button>
+                                <button class="btn btn-outline btn-sm tgweb-col-btn" data-cols="4" title="Yan Yana 4 Pencere">4'lü</button>
+                            </div>
                             <button class="btn btn-primary btn-sm" id="btn-add-tgweb-frame">
-                                <i class="fa-solid fa-plus"></i> Yeni Telegram Web Penceresi Ekle
+                                <i class="fa-solid fa-plus"></i> Yeni Pencere Ekle
                             </button>
                         </div>
                     </div>
@@ -592,6 +597,6 @@
     <!-- UI Overlay for API actions -->
     <div id="ui-toast-container"></div>
 
-    <script src="static/app.js?v=8"></script>
+    <script src="static/app.js?v=9"></script>
 </body>
 </html>
