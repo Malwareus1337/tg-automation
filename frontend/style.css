@@ -1139,23 +1139,28 @@ textarea:focus {
     align-items: center;
     gap: 6px;
     background: rgba(16, 185, 129, 0.15);
-    border: 1px solid rgba(16, 185, 129, 0.3);
+    border: 1px solid rgba(16, 185, 129, 0.35);
     color: #10b981;
     font-size: 12px;
     font-weight: 600;
-    padding: 2px 8px;
+    padding: 3px 10px;
     border-radius: 6px;
+    max-width: 280px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .tgweb-acc-select {
-    background: rgba(0, 0, 0, 0.5) !important;
-    border: 1px solid var(--border-color) !important;
+    background: rgba(10, 15, 30, 0.85) !important;
+    border: 1px solid rgba(0, 240, 255, 0.35) !important;
     color: #fff !important;
     padding: 3px 8px !important;
     border-radius: 6px !important;
-    font-size: 12px !important;
-    max-width: 180px;
+    font-size: 11.5px !important;
+    max-width: 240px;
     outline: none;
+    cursor: pointer;
 }
 
 /* Generic Modal Styles */

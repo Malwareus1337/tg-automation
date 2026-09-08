@@ -548,6 +548,9 @@
                             <button class="btn btn-outline btn-sm" id="btn-show-all-chats" title="Tüm Numaraların Katıldığı Grupları ve Linklerini Gör">
                                 <i class="fa-solid fa-list-check neon-text"></i> Gruplar & Linkler
                             </button>
+                            <button class="btn btn-outline btn-sm" id="btn-refresh-profiles" onclick="refreshAllProfiles()" title="Hesapların İsimlerini ve Kullanıcı Adlarını Telegram'dan Güncelle" style="border-color: rgba(0, 240, 255, 0.4);">
+                                <i class="fa-solid fa-id-card neon-text"></i> Profilleri Güncelle
+                            </button>
                             <button class="btn btn-outline btn-sm" onclick="switchTab('joiner')" title="Grup Linklerine Hesapları Otomatik Sok" style="border-color: rgba(0, 240, 255, 0.4); color: var(--primary);">
                                 <i class="fa-solid fa-right-to-bracket"></i> Gruba Katıl
                             </button>
@@ -686,6 +689,6 @@
         </div>
     </div>
 
-    <script src="static/app.js?v=12"></script>
+    <script src="static/app.js?v=13"></script>
 </body>
 </html>

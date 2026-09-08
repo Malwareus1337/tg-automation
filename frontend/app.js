@@ -182,6 +182,19 @@ async function loadStats() {
     }
 }
 
+// Helper to get formatted profile name
+function getAccountDisplayName(phone) {
+    if (!phone) return 'Hesap Seçilmedi';
+    const acc = cachedAccounts.find(a => a.phone === phone);
+    if (!acc) return phone;
+    if (acc.display_name && acc.display_name.trim() !== '') return acc.display_name;
+    const namePart = `${acc.first_name || ''} ${acc.last_name || ''}`.trim();
+    if (namePart && acc.username) return `${namePart} (@${acc.username})`;
+    if (namePart) return namePart;
+    if (acc.username) return `@${acc.username}`;
+    return acc.phone;
+}
+
 // Load Accounts List
 async function loadAccounts() {
     try {
@@ -214,6 +227,8 @@ async function loadAccounts() {
         }
         
         accounts.forEach(acc => {
+            const displayName = acc.display_name || getAccountDisplayName(acc.phone);
+
             // Table row
             const tr = document.createElement('tr');
             let statusBadge = '';
@@ -227,7 +242,10 @@ async function loadAccounts() {
                 : '-';
                 
             tr.innerHTML = `
-                <td>${acc.phone}</td>
+                <td>
+                    <div style="font-weight: 600; color: #fff;"><i class="fa-solid fa-user neon-text" style="font-size: 11px; margin-right: 4px;"></i> ${escapeHtml(displayName)}</div>
+                    <small class="text-muted"><i class="fa-solid fa-phone" style="font-size: 10px;"></i> ${acc.phone}</small>
+                </td>
                 <td>${acc.api_id}</td>
                 <td>${statusBadge}</td>
                 <td>${floodWaitMin}</td>
@@ -249,16 +267,16 @@ async function loadAccounts() {
             if (acc.status === 'active') {
                 const opt = document.createElement('option');
                 opt.value = acc.phone;
-                opt.textContent = acc.phone;
+                opt.textContent = `${displayName} (${acc.phone})`;
                 scrapeSelect.appendChild(opt);
             }
             
-            // Checkboxes for Adder & Messages
+            // Checkboxes for Adder, Joiner & Messages
             const label = document.createElement('label');
             label.className = 'account-checkbox-item';
             label.innerHTML = `
                 <input type="checkbox" name="use-accounts" value="${acc.phone}" ${acc.status === 'active' ? 'checked' : 'disabled'}>
-                <span>${acc.phone} (${acc.status === 'active' ? 'Aktif' : 'Pasif'})</span>
+                <span>${escapeHtml(displayName)} <small class="text-muted">(${acc.phone})</small></span>
             `;
             adderCheckboxes.appendChild(label.cloneNode(true));
             if (joinerCheckboxes) joinerCheckboxes.appendChild(label.cloneNode(true));
@@ -293,6 +311,7 @@ async function loadAccounts() {
                 autopostContainer.appendChild(card);
             }
         });
+        updateAllFrameAccountLabels();
     } catch(e) {
         console.error("Accounts load error:", e);
     }
@@ -1581,6 +1600,49 @@ function setupTgWebFrames() {
     addTgWebFrame();
 }
 
+// Update all rendered frame labels & dropdowns with latest profile names
+function updateAllFrameAccountLabels() {
+    document.querySelectorAll('.tgweb-card').forEach(card => {
+        const frameNum = card.id.replace('tgweb_card_', '');
+        const savedPhone = localStorage.getItem(`tgweb_acc_${frameNum}`);
+        const phoneText = card.querySelector(`#${card.id}_phone_text`);
+        const accSelect = card.querySelector('.tgweb-acc-select');
+        
+        if (phoneText) {
+            phoneText.textContent = getAccountDisplayName(savedPhone);
+        }
+        
+        if (accSelect) {
+            let accOptions = '<option value="">-- Hesap Seç / Etiketle --</option>';
+            cachedAccounts.forEach(a => {
+                const isSel = (a.phone === savedPhone) ? 'selected' : '';
+                const dName = getAccountDisplayName(a.phone);
+                accOptions += `<option value="${a.phone}" ${isSel}>👤 ${escapeHtml(dName)}</option>`;
+            });
+            accSelect.innerHTML = accOptions;
+            if (savedPhone) accSelect.value = savedPhone;
+        }
+    });
+}
+
+// Refresh all account profiles directly from Telegram API
+window.refreshAllProfiles = async function() {
+    showToast("Telegram'dan profil isimleri ve kullanıcı adları çekiliyor...", "info");
+    try {
+        const res = await fetch(`${API_BASE}/api/accounts/refresh-profiles`, { method: 'POST' });
+        if (res.ok) {
+            const data = await res.json();
+            showToast("Tüm hesapların profil isimleri Telegram'dan başarıyla güncellendi!", "success");
+            await loadAccounts();
+            updateAllFrameAccountLabels();
+        } else {
+            showToast("Profiller güncellenirken hata oluştu.", "error");
+        }
+    } catch(e) {
+        showToast("Ağ hatası oluştu.", "error");
+    }
+};
+
 function addTgWebFrame() {
     const grid = document.getElementById('tgweb-frames-grid');
     if (!grid) return;
@@ -1592,7 +1654,14 @@ function addTgWebFrame() {
 
     // Auto-assign account or load from localStorage
     const activeAccs = cachedAccounts.filter(a => a.status === 'active');
-    let savedPhone = localStorage.getItem(`tgweb_acc_${frameNum}`) || (activeAccs[frameNum - 1]?.phone || '');
+    let savedPhone = localStorage.getItem(`tgweb_acc_${frameNum}`);
+    if (!savedPhone && activeAccs[frameNum - 1]) {
+        savedPhone = activeAccs[frameNum - 1].phone;
+        localStorage.setItem(`tgweb_acc_${frameNum}`, savedPhone);
+    }
+    savedPhone = savedPhone || '';
+
+    const displayName = getAccountDisplayName(savedPhone);
 
     const card = document.createElement('div');
     card.className = 'tgweb-card glass-panel';
@@ -1602,15 +1671,16 @@ function addTgWebFrame() {
     let accOptions = '<option value="">-- Hesap Seç / Etiketle --</option>';
     cachedAccounts.forEach(a => {
         const isSel = (a.phone === savedPhone) ? 'selected' : '';
-        accOptions += `<option value="${a.phone}" ${isSel}>${a.phone} (${a.status})</option>`;
+        const dName = getAccountDisplayName(a.phone);
+        accOptions += `<option value="${a.phone}" ${isSel}>👤 ${escapeHtml(dName)}</option>`;
     });
 
     card.innerHTML = `
         <div class="tgweb-card-header">
             <div class="tgweb-card-title">
                 <span class="badge badge-primary"><i class="fa-brands fa-telegram"></i> Pencere #${frameNum}</span>
-                <span class="tgweb-user-badge" id="${cardId}_badge">
-                    <i class="fa-solid fa-user-check"></i> <span id="${cardId}_phone_text">${savedPhone || 'Hesap Seçilmedi'}</span>
+                <span class="tgweb-user-badge" id="${cardId}_badge" title="Bu pencereye atanan hesap profili">
+                    <i class="fa-solid fa-user-check"></i> <span id="${cardId}_phone_text">${escapeHtml(displayName)}</span>
                 </span>
                 <select class="tgweb-acc-select" id="${cardId}_acc_select" title="Bu pencereye ait hesabı etiketle">
                     ${accOptions}
@@ -1648,7 +1718,7 @@ function addTgWebFrame() {
         const val = e.target.value;
         savedPhone = val;
         localStorage.setItem(`tgweb_acc_${frameNum}`, val);
-        if (phoneText) phoneText.textContent = val || 'Hesap Seçilmedi';
+        if (phoneText) phoneText.textContent = getAccountDisplayName(val);
     });
 
     // View groups button

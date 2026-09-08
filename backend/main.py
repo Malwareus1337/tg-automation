@@ -166,6 +166,14 @@ async def check_all_accounts():
             results.append({"phone": acc["phone"], "status": "error", "message": str(e)})
     return results
 
+@app.post("/api/accounts/refresh-profiles")
+async def refresh_account_profiles():
+    try:
+        results = await TelegramManager.refresh_all_account_profiles()
+        return {"status": "success", "accounts": results}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/api/accounts/{phone}/chats")
 async def get_account_chats(phone: str):
     try:

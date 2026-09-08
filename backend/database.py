@@ -22,9 +22,23 @@ def init_db():
             api_hash TEXT,
             session_name TEXT,
             status TEXT,
-            flood_until INTEGER DEFAULT 0
+            flood_until INTEGER DEFAULT 0,
+            first_name TEXT DEFAULT '',
+            last_name TEXT DEFAULT '',
+            username TEXT DEFAULT ''
         )
         """)
+
+        # Migration: ensure first_name, last_name, username columns exist in older DBs
+        cursor.execute("PRAGMA table_info(accounts);")
+        existing_cols = [c[1] for c in cursor.fetchall()]
+        if "first_name" not in existing_cols:
+            cursor.execute("ALTER TABLE accounts ADD COLUMN first_name TEXT DEFAULT '';")
+        if "last_name" not in existing_cols:
+            cursor.execute("ALTER TABLE accounts ADD COLUMN last_name TEXT DEFAULT '';")
+        if "username" not in existing_cols:
+            cursor.execute("ALTER TABLE accounts ADD COLUMN username TEXT DEFAULT '';")
+
         
         # Scraped members table
         cursor.execute("""
@@ -72,14 +86,54 @@ class Database:
             conn.close()
         
     # Account Management
-    def add_or_update_account(self, phone, api_id, api_hash, session_name, status="need_login", flood_until=0):
+    def add_or_update_account(self, phone, api_id, api_hash, session_name, status="need_login", flood_until=0, first_name="", last_name="", username=""):
         with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-            INSERT OR REPLACE INTO accounts (phone, api_id, api_hash, session_name, status, flood_until)
-            VALUES (?, ?, ?, ?, ?, ?)
-            """, (phone, api_id, api_hash, session_name, status, flood_until))
+            INSERT INTO accounts (phone, api_id, api_hash, session_name, status, flood_until, first_name, last_name, username)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(phone) DO UPDATE SET
+                api_id = excluded.api_id,
+                api_hash = excluded.api_hash,
+                session_name = excluded.session_name,
+                status = excluded.status,
+                flood_until = excluded.flood_until,
+                first_name = CASE WHEN excluded.first_name != '' THEN excluded.first_name ELSE accounts.first_name END,
+                last_name = CASE WHEN excluded.last_name != '' THEN excluded.last_name ELSE accounts.last_name END,
+                username = CASE WHEN excluded.username != '' THEN excluded.username ELSE accounts.username END
+            """, (phone, api_id, api_hash, session_name, status, flood_until, first_name, last_name, username))
             conn.commit()
+
+    def update_account_profile(self, phone, first_name="", last_name="", username=""):
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE accounts 
+                SET first_name = ?, last_name = ?, username = ? 
+                WHERE phone = ?
+            """, (first_name or "", last_name or "", username or "", phone))
+            conn.commit()
+
+    def _format_account_row(self, row_dict):
+        first_name = (row_dict.get("first_name") or "").strip()
+        last_name = (row_dict.get("last_name") or "").strip()
+        username = (row_dict.get("username") or "").strip()
+        full_name = f"{first_name} {last_name}".strip()
+        
+        if full_name and username:
+            display_name = f"{full_name} (@{username})"
+        elif full_name:
+            display_name = full_name
+        elif username:
+            display_name = f"@{username}"
+        else:
+            display_name = row_dict.get("phone", "")
+
+        row_dict["first_name"] = first_name
+        row_dict["last_name"] = last_name
+        row_dict["username"] = username
+        row_dict["display_name"] = display_name
+        return row_dict
             
     def get_accounts(self):
         now = int(time.time())
@@ -91,7 +145,7 @@ class Database:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM accounts")
-            return [dict(row) for row in cursor.fetchall()]
+            return [self._format_account_row(dict(row)) for row in cursor.fetchall()]
             
     def get_active_accounts(self):
         now = int(time.time())
@@ -99,7 +153,7 @@ class Database:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM accounts WHERE status = 'active' AND flood_until <= ?", (now,))
-            return [dict(row) for row in cursor.fetchall()]
+            return [self._format_account_row(dict(row)) for row in cursor.fetchall()]
             
     def update_account_status(self, phone, status, flood_until=0):
         with self._get_connection() as conn:

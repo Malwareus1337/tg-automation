@@ -168,14 +168,84 @@ class TelegramManager:
             db.update_account_status(phone, "need_login")
             return {"phone": phone, "status": "need_login", "message": "Kullanıcı bilgisi alınamadı."}
             
-        # Account is authorized and alive! Reset status to active
+        # Account is authorized and alive! Reset status to active and save profile info
+        first_name = getattr(me, 'first_name', '') or ''
+        last_name = getattr(me, 'last_name', '') or ''
+        username = getattr(me, 'username', '') or ''
         db.update_account_status(phone, "active", 0)
+        db.update_account_profile(phone, first_name, last_name, username)
+
+        full_name = f"{first_name} {last_name}".strip()
+        display_name = full_name if full_name else phone
+        if username:
+            display_name += f" (@{username})"
+
         return {
             "phone": phone,
             "status": "active",
-            "username": me.username or me.first_name,
-            "message": f"Hesap aktif ve sorunsuz çalışıyor! ({me.first_name or me.username})"
+            "first_name": first_name,
+            "last_name": last_name,
+            "username": username,
+            "display_name": display_name,
+            "message": f"Hesap aktif: {display_name}"
         }
+
+    @staticmethod
+    async def get_account_profile(phone):
+        accounts = db.get_accounts()
+        acc = next((a for a in accounts if a["phone"] == phone), None)
+        if not acc:
+            raise ValueError("Hesap bulunamadı.")
+            
+        client = await TelegramManager.ensure_connected(acc)
+        if not await client.is_user_authorized():
+            db.update_account_status(phone, "need_login")
+            return {"phone": phone, "status": "need_login", "display_name": phone}
+            
+        me = await client.get_me()
+        if not me:
+            return {"phone": phone, "status": "need_login", "display_name": phone}
+            
+        first_name = getattr(me, 'first_name', '') or ''
+        last_name = getattr(me, 'last_name', '') or ''
+        username = getattr(me, 'username', '') or ''
+        db.update_account_profile(phone, first_name, last_name, username)
+
+        full_name = f"{first_name} {last_name}".strip()
+        display_name = full_name if full_name else phone
+        if username:
+            display_name += f" (@{username})"
+
+        return {
+            "phone": phone,
+            "first_name": first_name,
+            "last_name": last_name,
+            "username": username,
+            "display_name": display_name,
+            "status": "active"
+        }
+
+    @staticmethod
+    async def refresh_all_account_profiles():
+        accounts = db.get_accounts()
+        results = []
+        for acc in accounts:
+            phone = acc["phone"]
+            try:
+                prof = await TelegramManager.get_account_profile(phone)
+                results.append(prof)
+            except Exception as e:
+                results.append({
+                    "phone": phone,
+                    "first_name": acc.get("first_name", ""),
+                    "last_name": acc.get("last_name", ""),
+                    "username": acc.get("username", ""),
+                    "display_name": acc.get("display_name", phone),
+                    "status": acc.get("status", "error"),
+                    "error": str(e)
+                })
+        return results
+
 
     @staticmethod
     async def scrape_group(account_phone, group_link, filter_days=None, hidden_member_fallback=False, log_callback=None):
