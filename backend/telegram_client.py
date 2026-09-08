@@ -528,3 +528,102 @@ class TelegramManager:
         finally:
             pass
 
+    @staticmethod
+    async def get_messenger_dialogs(phone, limit=40):
+        acc = next((a for a in db.get_accounts() if a["phone"] == phone), None)
+        if not acc:
+            raise ValueError("Hesap bulunamadı.")
+        client = await TelegramManager.ensure_connected(acc)
+        if not await client.is_user_authorized():
+            raise ValueError("Hesap yetkilendirilmemiş.")
+        
+        dialogs = []
+        async for d in client.iter_dialogs(limit=limit):
+            d_type = "user"
+            if d.is_channel:
+                d_type = "channel"
+            elif d.is_group:
+                d_type = "group"
+                
+            last_msg = ""
+            if d.message:
+                if d.message.message:
+                    last_msg = d.message.message[:80]
+                elif d.message.media:
+                    last_msg = f"[{type(d.message.media).__name__.replace('MessageMedia', '')}]"
+            
+            username = getattr(d.entity, 'username', None)
+            date_str = d.date.strftime("%H:%M") if d.date else ""
+            
+            dialogs.append({
+                "id": d.id,
+                "name": d.name or (f"@{username}" if username else "Bilinmeyen"),
+                "unread_count": d.unread_count or 0,
+                "type": d_type,
+                "last_message": last_msg,
+                "date": date_str,
+                "username": username
+            })
+        return dialogs
+
+    @staticmethod
+    async def get_messenger_messages(phone, chat_id, limit=50):
+        acc = next((a for a in db.get_accounts() if a["phone"] == phone), None)
+        if not acc:
+            raise ValueError("Hesap bulunamadı.")
+        client = await TelegramManager.ensure_connected(acc)
+        if not await client.is_user_authorized():
+            raise ValueError("Hesap yetkilendirilmemiş.")
+            
+        try:
+            target_id = int(chat_id)
+        except (ValueError, TypeError):
+            target_id = chat_id
+            
+        entity = await client.get_entity(target_id)
+        messages_list = []
+        async for m in client.iter_messages(entity, limit=limit):
+            media_desc = None
+            if m.media:
+                media_desc = type(m.media).__name__.replace('MessageMedia', '')
+                
+            sender_name = "Ben" if m.out else ""
+            if not m.out and m.sender:
+                sender_name = getattr(m.sender, 'first_name', '') or getattr(m.sender, 'title', '') or getattr(m.sender, 'username', 'Kullanıcı')
+                
+            messages_list.append({
+                "id": m.id,
+                "text": m.text or (f"[{media_desc}]" if media_desc else ""),
+                "date": m.date.strftime("%d.%m %H:%M") if m.date else "",
+                "out": bool(m.out),
+                "sender_name": sender_name,
+                "media_type": media_desc
+            })
+            
+        messages_list.reverse()
+        return messages_list
+
+    @staticmethod
+    async def send_messenger_message(phone, chat_id, text):
+        acc = next((a for a in db.get_accounts() if a["phone"] == phone), None)
+        if not acc:
+            raise ValueError("Hesap bulunamadı.")
+        client = await TelegramManager.ensure_connected(acc)
+        if not await client.is_user_authorized():
+            raise ValueError("Hesap yetkilendirilmemiş.")
+            
+        try:
+            target_id = int(chat_id)
+        except (ValueError, TypeError):
+            target_id = chat_id
+            
+        entity = await client.get_entity(target_id)
+        msg = await client.send_message(entity, text)
+        return {
+            "id": msg.id,
+            "text": msg.text,
+            "date": msg.date.strftime("%d.%m %H:%M") if msg.date else "",
+            "out": True,
+            "sender_name": "Ben"
+        }
+

@@ -173,6 +173,8 @@ async function loadAccounts() {
     try {
         const res = await fetch(`${API_BASE}/api/accounts`);
         accounts = await res.json();
+        cachedAccounts = accounts;
+        updateMessengerAccountSelects();
         
         const tbody = document.getElementById('accounts-list-body');
         const scrapeSelect = document.getElementById('scrape-account');
@@ -876,4 +878,536 @@ function bindEvents() {
             });
         }
     });
+    // 10. Messenger Handlers
+    const messengerSelect = document.getElementById('messenger-account-select');
+    if (messengerSelect) {
+        messengerSelect.addEventListener('change', (e) => {
+            const phone = e.target.value;
+            if (phone) {
+                loadMessengerDialogs(phone);
+            }
+        });
+    }
+
+    const btnRefreshDialogs = document.getElementById('btn-refresh-dialogs');
+    if (btnRefreshDialogs) {
+        btnRefreshDialogs.addEventListener('click', () => {
+            if (activeMessengerPhone) {
+                loadMessengerDialogs(activeMessengerPhone);
+                showToast("Sohbetler yenileniyor...", "info");
+            } else {
+                showToast("Lütfen önce bir hesap seçin.", "warning");
+            }
+        });
+    }
+
+    const searchInput = document.getElementById('messenger-search-input');
+    if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+            const q = e.target.value.toLowerCase().trim();
+            if (!q) {
+                renderDialogs(currentDialogs);
+            } else {
+                const filtered = currentDialogs.filter(d => 
+                    d.name.toLowerCase().includes(q) || 
+                    (d.username && d.username.toLowerCase().includes(q)) ||
+                    (d.last_message && d.last_message.toLowerCase().includes(q))
+                );
+                renderDialogs(filtered);
+            }
+        });
+    }
+
+    const msgInput = document.getElementById('messenger-message-input');
+    const sendBtn = document.getElementById('btn-send-chat-msg');
+    if (sendBtn) {
+        sendBtn.addEventListener('click', sendMessengerMessage);
+    }
+    if (msgInput) {
+        msgInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                sendMessengerMessage();
+            }
+        });
+    }
+
+    // View Toggles (Single vs Split)
+    const btnSingle = document.getElementById('btn-view-single');
+    const btnSplit = document.getElementById('btn-view-split');
+    const singleContainer = document.getElementById('messenger-single-container');
+    const splitContainer = document.getElementById('messenger-split-container');
+
+    if (btnSingle && btnSplit) {
+        btnSingle.addEventListener('click', () => {
+            btnSingle.classList.add('active');
+            btnSplit.classList.remove('active');
+            if (singleContainer) singleContainer.style.display = 'block';
+            if (splitContainer) splitContainer.style.display = 'none';
+        });
+
+        btnSplit.addEventListener('click', () => {
+            btnSplit.classList.add('active');
+            btnSingle.classList.remove('active');
+            if (singleContainer) singleContainer.style.display = 'none';
+            if (splitContainer) splitContainer.style.display = 'block';
+            if (splitWindows.length === 0) {
+                setupSplitView();
+            }
+        });
+    }
+
+    const btnAddSplitCol = document.getElementById('btn-add-split-col');
+    if (btnAddSplitCol) {
+        btnAddSplitCol.addEventListener('click', () => {
+            addSplitWindow();
+        });
+    }
+
+    const btnRefreshAllSplits = document.getElementById('btn-refresh-all-splits');
+    if (btnRefreshAllSplits) {
+        btnRefreshAllSplits.addEventListener('click', () => {
+            splitWindows.forEach(w => {
+                if (w.phone) loadSplitDialogs(w);
+            });
+            showToast("Tüm açık pencereler yenilendi.", "info");
+        });
+    }
+}
+
+// ==========================================
+// Messenger Logic (Telegram Web In-Panel)
+// ==========================================
+
+let activeMessengerPhone = null;
+let activeMessengerChatId = null;
+let activeMessengerChatName = '';
+let currentDialogs = [];
+
+function updateMessengerAccountSelects() {
+    const sel = document.getElementById('messenger-account-select');
+    if (!sel) return;
+    const currentVal = sel.value;
+    sel.innerHTML = '<option value="">Hesap Seçiniz...</option>';
+    
+    cachedAccounts.forEach(acc => {
+        if (acc.status === 'active') {
+            const opt = document.createElement('option');
+            opt.value = acc.phone;
+            opt.textContent = `📱 ${acc.phone}`;
+            sel.appendChild(opt);
+        }
+    });
+    
+    if (currentVal && cachedAccounts.some(a => a.phone === currentVal && a.status === 'active')) {
+        sel.value = currentVal;
+    } else if (cachedAccounts.some(a => a.status === 'active')) {
+        const firstActive = cachedAccounts.find(a => a.status === 'active');
+        sel.value = firstActive.phone;
+        activeMessengerPhone = firstActive.phone;
+        loadMessengerDialogs(firstActive.phone);
+    }
+}
+
+async function loadMessengerDialogs(phone) {
+    if (!phone) return;
+    activeMessengerPhone = phone;
+    const listEl = document.getElementById('messenger-dialogs-list');
+    if (!listEl) return;
+    
+    listEl.innerHTML = `
+        <div class="messenger-empty-state">
+            <i class="fa-solid fa-spinner fa-spin" style="font-size: 28px; margin-bottom: 8px;"></i>
+            <p>Sohbetler ve kanallar yükleniyor...</p>
+        </div>
+    `;
+    
+    try {
+        const res = await fetch(`${API_BASE}/api/messenger/dialogs?phone=${encodeURIComponent(phone)}&limit=50`);
+        if (!res.ok) {
+            const err = await res.json();
+            listEl.innerHTML = `<div class="messenger-empty-state text-danger"><i class="fa-solid fa-triangle-exclamation"></i><p>${err.detail || 'Sohbetler alınamadı.'}</p></div>`;
+            return;
+        }
+        
+        currentDialogs = await res.json();
+        renderDialogs(currentDialogs);
+    } catch(e) {
+        listEl.innerHTML = `<div class="messenger-empty-state text-danger"><i class="fa-solid fa-wifi"></i><p>Bağlantı hatası.</p></div>`;
+    }
+}
+
+function renderDialogs(dialogs) {
+    const listEl = document.getElementById('messenger-dialogs-list');
+    if (!listEl) return;
+    
+    if (dialogs.length === 0) {
+        listEl.innerHTML = `<div class="messenger-empty-state"><i class="fa-regular fa-folder-open"></i><p>Sohbet bulunamadı.</p></div>`;
+        return;
+    }
+    
+    listEl.innerHTML = '';
+    dialogs.forEach(d => {
+        const item = document.createElement('div');
+        item.className = `messenger-dialog-item ${activeMessengerChatId == d.id ? 'active' : ''}`;
+        item.dataset.chatId = d.id;
+        
+        let avatarIcon = '<i class="fa-solid fa-user"></i>';
+        if (d.type === 'channel') avatarIcon = '<i class="fa-solid fa-bullhorn"></i>';
+        else if (d.type === 'group') avatarIcon = '<i class="fa-solid fa-users"></i>';
+        
+        const unreadBadge = d.unread_count > 0 ? `<div class="dialog-unread">${d.unread_count}</div>` : '';
+        
+        item.innerHTML = `
+            <div class="dialog-avatar">${avatarIcon}</div>
+            <div class="dialog-body">
+                <div class="dialog-top-row">
+                    <div class="dialog-name" title="${d.name}">${d.name}</div>
+                    <div class="dialog-date">${d.date}</div>
+                </div>
+                <div class="dialog-bottom-row">
+                    <div class="dialog-snippet" title="${d.last_message || ''}">${d.last_message || '<i>Mesaj yok</i>'}</div>
+                    ${unreadBadge}
+                </div>
+            </div>
+        `;
+        
+        item.addEventListener('click', () => {
+            document.querySelectorAll('.messenger-dialog-item').forEach(el => el.classList.remove('active'));
+            item.classList.add('active');
+            loadMessengerMessages(activeMessengerPhone, d.id, d.name, d.type, d.username);
+        });
+        
+        listEl.appendChild(item);
+    });
+}
+
+async function loadMessengerMessages(phone, chatId, chatName, chatType, chatUsername) {
+    activeMessengerChatId = chatId;
+    activeMessengerChatName = chatName;
+    
+    const nameEl = document.getElementById('messenger-active-chat-name');
+    const badgeEl = document.getElementById('messenger-active-chat-badge');
+    const extraEl = document.getElementById('messenger-active-chat-extra');
+    const inputEl = document.getElementById('messenger-message-input');
+    const sendBtn = document.getElementById('btn-send-chat-msg');
+    
+    if (nameEl) nameEl.textContent = chatName;
+    if (badgeEl) {
+        badgeEl.style.display = 'inline-block';
+        badgeEl.textContent = chatType === 'channel' ? 'Kanal' : (chatType === 'group' ? 'Grup' : 'Kişi');
+    }
+    if (extraEl) {
+        extraEl.textContent = chatUsername ? `@${chatUsername}` : `ID: ${chatId}`;
+    }
+    
+    if (inputEl) {
+        inputEl.disabled = false;
+        inputEl.focus();
+    }
+    if (sendBtn) sendBtn.disabled = false;
+    
+    const messagesArea = document.getElementById('messenger-messages-area');
+    if (!messagesArea) return;
+    
+    messagesArea.innerHTML = `
+        <div class="messenger-empty-state">
+            <i class="fa-solid fa-spinner fa-spin" style="font-size: 28px; margin-bottom: 8px;"></i>
+            <p>Mesaj geçmişi alınıyor...</p>
+        </div>
+    `;
+    
+    try {
+        const res = await fetch(`${API_BASE}/api/messenger/messages?phone=${encodeURIComponent(phone)}&chat_id=${encodeURIComponent(chatId)}&limit=50`);
+        if (!res.ok) {
+            const err = await res.json();
+            messagesArea.innerHTML = `<div class="messenger-empty-state text-danger"><p>${err.detail || 'Mesajlar yüklenemedi.'}</p></div>`;
+            return;
+        }
+        
+        const messages = await res.json();
+        if (messages.length === 0) {
+            messagesArea.innerHTML = `<div class="messenger-empty-state"><p>Bu sohbette henüz mesaj bulunmuyor.</p></div>`;
+            return;
+        }
+        
+        messagesArea.innerHTML = '';
+        messages.forEach(m => {
+            const bubble = document.createElement('div');
+            bubble.className = `msg-bubble ${m.out ? 'outgoing' : 'incoming'}`;
+            
+            const senderHtml = (!m.out && m.sender_name) ? `<div class="msg-sender">${m.sender_name}</div>` : '';
+            
+            bubble.innerHTML = `
+                ${senderHtml}
+                <div class="msg-text">${escapeHtml(m.text)}</div>
+                <div class="msg-meta">${m.date}</div>
+            `;
+            messagesArea.appendChild(bubble);
+        });
+        
+        messagesArea.scrollTop = messagesArea.scrollHeight;
+    } catch(e) {
+        messagesArea.innerHTML = `<div class="messenger-empty-state text-danger"><p>Mesajlar alınırken ağ hatası oluştu.</p></div>`;
+    }
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;")
+        .replace(/\n/g, "<br>");
+}
+
+async function sendMessengerMessage() {
+    const inputEl = document.getElementById('messenger-message-input');
+    if (!inputEl) return;
+    const text = inputEl.value.trim();
+    if (!text || !activeMessengerPhone || !activeMessengerChatId) return;
+    
+    inputEl.value = '';
+    
+    const messagesArea = document.getElementById('messenger-messages-area');
+    const tempBubble = document.createElement('div');
+    tempBubble.className = 'msg-bubble outgoing';
+    const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    tempBubble.innerHTML = `
+        <div class="msg-text">${escapeHtml(text)}</div>
+        <div class="msg-meta">${nowTime} <i class="fa-solid fa-clock"></i></div>
+    `;
+    if (messagesArea) {
+        messagesArea.appendChild(tempBubble);
+        messagesArea.scrollTop = messagesArea.scrollHeight;
+    }
+    
+    try {
+        const res = await fetch(`${API_BASE}/api/messenger/send`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                phone: activeMessengerPhone,
+                chat_id: activeMessengerChatId,
+                text: text
+            })
+        });
+        
+        if (res.ok) {
+            tempBubble.querySelector('.msg-meta').innerHTML = `${nowTime} <i class="fa-solid fa-check text-green"></i>`;
+        } else {
+            const err = await res.json();
+            tempBubble.querySelector('.msg-meta').innerHTML = `<span class="text-danger">Hata: ${err.detail || 'İletilemedi'}</span>`;
+        }
+    } catch(e) {
+        tempBubble.querySelector('.msg-meta').innerHTML = `<span class="text-danger">Ağ hatası</span>`;
+    }
+}
+
+// ==========================================
+// Multi-Window Split Screen Manager
+// ==========================================
+
+let splitWindows = [];
+
+function setupSplitView() {
+    const grid = document.getElementById('messenger-split-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    splitWindows = [];
+    
+    const activeAccounts = cachedAccounts.filter(a => a.status === 'active');
+    if (activeAccounts.length === 0) {
+        grid.innerHTML = `<div class="text-muted" style="padding: 24px; text-align: center;">Aktif hesap bulunamadı. Lütfen önce hesap ekleyin veya hesap durumunu kontrol edin.</div>`;
+        return;
+    }
+    
+    // Auto-open up to 3 accounts side-by-side
+    const initialAccounts = activeAccounts.slice(0, 3);
+    initialAccounts.forEach(acc => {
+        addSplitWindow(acc.phone);
+    });
+}
+
+function addSplitWindow(phone = '') {
+    const grid = document.getElementById('messenger-split-grid');
+    if (!grid) return;
+    
+    const windowId = 'split_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+    const winObj = { id: windowId, phone: phone, activeChatId: null, activeChatName: '' };
+    splitWindows.push(winObj);
+    
+    const col = document.createElement('div');
+    col.className = 'split-window glass-panel';
+    col.id = windowId;
+    
+    let selectOptions = '<option value="">Hesap Seç...</option>';
+    cachedAccounts.forEach(a => {
+        if (a.status === 'active') {
+            const isSel = (a.phone === phone) ? 'selected' : '';
+            selectOptions += `<option value="${a.phone}" ${isSel}>${a.phone}</option>`;
+        }
+    });
+    
+    col.innerHTML = `
+        <div class="split-window-header">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-mobile-screen neon-text" style="font-size: 13px;"></i>
+                <select class="split-acc-select" data-id="${windowId}">
+                    ${selectOptions}
+                </select>
+            </div>
+            <button class="btn btn-outline btn-sm split-btn-close" style="padding: 2px 7px; font-size: 11px;" title="Pencereyi Kapat"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="split-window-body">
+            <div class="split-dialogs" id="${windowId}_dialogs">
+                <div style="padding: 10px; font-size: 11px; color: var(--text-muted); text-align: center;">Yükleniyor...</div>
+            </div>
+            <div class="split-chat-area">
+                <div style="padding: 8px 12px; border-bottom: 1px solid var(--border-color); font-size: 12px; font-weight: 600; background: rgba(0,0,0,0.2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" id="${windowId}_title">
+                    Sohbet seçin
+                </div>
+                <div class="split-messages-list" id="${windowId}_messages">
+                    <div style="padding: 24px 10px; text-align: center; color: var(--text-muted); font-size: 12px;">Soldan bir sohbet seçin</div>
+                </div>
+                <div class="split-input-bar">
+                    <input type="text" placeholder="Mesaj yazın..." id="${windowId}_input" disabled>
+                    <button class="btn btn-primary btn-sm" id="${windowId}_send" style="padding: 4px 10px;" disabled><i class="fa-solid fa-paper-plane"></i></button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    grid.appendChild(col);
+    
+    col.querySelector('.split-btn-close').addEventListener('click', () => {
+        col.remove();
+        splitWindows = splitWindows.filter(w => w.id !== windowId);
+    });
+    
+    const accSelect = col.querySelector('.split-acc-select');
+    accSelect.addEventListener('change', (e) => {
+        winObj.phone = e.target.value;
+        loadSplitDialogs(winObj);
+    });
+    
+    const inputEl = col.querySelector(`#${windowId}_input`);
+    const sendBtn = col.querySelector(`#${windowId}_send`);
+    const doSend = async () => {
+        const txt = inputEl.value.trim();
+        if (!txt || !winObj.phone || !winObj.activeChatId) return;
+        inputEl.value = '';
+        
+        const list = col.querySelector(`#${windowId}_messages`);
+        const b = document.createElement('div');
+        b.className = 'msg-bubble outgoing';
+        b.style.fontSize = '12px';
+        b.style.padding = '6px 10px';
+        b.innerHTML = `<div>${escapeHtml(txt)}</div><div class="msg-meta" style="font-size: 9.5px;">${new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div>`;
+        list.appendChild(b);
+        list.scrollTop = list.scrollHeight;
+        
+        try {
+            await fetch(`${API_BASE}/api/messenger/send`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone: winObj.phone, chat_id: winObj.activeChatId, text: txt })
+            });
+        } catch(e) {}
+    };
+    
+    sendBtn.addEventListener('click', doSend);
+    inputEl.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') doSend();
+    });
+    
+    if (phone) {
+        loadSplitDialogs(winObj);
+    }
+}
+
+async function loadSplitDialogs(winObj) {
+    const dialogsEl = document.getElementById(`${winObj.id}_dialogs`);
+    if (!dialogsEl || !winObj.phone) return;
+    
+    dialogsEl.innerHTML = `<div style="padding: 10px; font-size: 11px; color: var(--text-muted); text-align: center;"><i class="fa-solid fa-spinner fa-spin"></i> Yükleniyor...</div>`;
+    
+    try {
+        const res = await fetch(`${API_BASE}/api/messenger/dialogs?phone=${encodeURIComponent(winObj.phone)}&limit=30`);
+        if (!res.ok) {
+            dialogsEl.innerHTML = `<div style="padding: 10px; font-size: 11px; color: var(--danger); text-align: center;">Alınamadı</div>`;
+            return;
+        }
+        const dialogs = await res.json();
+        dialogsEl.innerHTML = '';
+        
+        if (dialogs.length === 0) {
+            dialogsEl.innerHTML = `<div style="padding: 10px; font-size: 11px; color: var(--text-muted); text-align: center;">Sohbet yok</div>`;
+            return;
+        }
+        
+        dialogs.forEach(d => {
+            const item = document.createElement('div');
+            item.className = 'split-dialog-item';
+            item.innerHTML = `<div title="${d.name}" style="overflow: hidden; text-overflow: ellipsis;">${d.name}</div>`;
+            item.addEventListener('click', () => {
+                dialogsEl.querySelectorAll('.split-dialog-item').forEach(el => el.classList.remove('active'));
+                item.classList.add('active');
+                winObj.activeChatId = d.id;
+                winObj.activeChatName = d.name;
+                loadSplitMessages(winObj, d.name);
+            });
+            dialogsEl.appendChild(item);
+        });
+    } catch(e) {
+        dialogsEl.innerHTML = `<div style="padding: 10px; font-size: 11px; color: var(--danger); text-align: center;">Ağ hatası</div>`;
+    }
+}
+
+async function loadSplitMessages(winObj, chatName) {
+    const titleEl = document.getElementById(`${winObj.id}_title`);
+    const listEl = document.getElementById(`${winObj.id}_messages`);
+    const inputEl = document.getElementById(`${winObj.id}_input`);
+    const sendBtn = document.getElementById(`${winObj.id}_send`);
+    
+    if (titleEl) titleEl.textContent = chatName;
+    if (inputEl) { inputEl.disabled = false; inputEl.focus(); }
+    if (sendBtn) sendBtn.disabled = false;
+    
+    if (listEl) {
+        listEl.innerHTML = `<div style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 12px;"><i class="fa-solid fa-spinner fa-spin"></i></div>`;
+    }
+    
+    try {
+        const res = await fetch(`${API_BASE}/api/messenger/messages?phone=${encodeURIComponent(winObj.phone)}&chat_id=${encodeURIComponent(winObj.activeChatId)}&limit=30`);
+        if (!res.ok) {
+            if (listEl) listEl.innerHTML = `<div style="padding: 10px; color: var(--danger); font-size: 12px;">Hata</div>`;
+            return;
+        }
+        const messages = await res.json();
+        if (listEl) {
+            listEl.innerHTML = '';
+            if (messages.length === 0) {
+                listEl.innerHTML = `<div style="padding: 15px; color: var(--text-muted); font-size: 11.5px; text-align: center;">Mesaj yok</div>`;
+                return;
+            }
+            messages.forEach(m => {
+                const bubble = document.createElement('div');
+                bubble.className = `msg-bubble ${m.out ? 'outgoing' : 'incoming'}`;
+                bubble.style.fontSize = '12px';
+                bubble.style.padding = '6px 10px';
+                bubble.innerHTML = `
+                    ${!m.out && m.sender_name ? `<div class="msg-sender" style="font-size: 10.5px;">${m.sender_name}</div>` : ''}
+                    <div class="msg-text">${escapeHtml(m.text)}</div>
+                    <div class="msg-meta" style="font-size: 9.5px;">${m.date}</div>
+                `;
+                listEl.appendChild(bubble);
+            });
+            listEl.scrollTop = listEl.scrollHeight;
+        }
+    } catch(e) {
+        if (listEl) listEl.innerHTML = `<div style="padding: 10px; color: var(--danger); font-size: 12px;">Bağlantı hatası</div>`;
+    }
 }

@@ -648,3 +648,392 @@ textarea:focus {
 .toast-success { border-left: 4px solid var(--success); }
 .toast-error { border-left: 4px solid var(--danger); }
 .toast-info { border-left: 4px solid var(--primary); }
+
+/* ==========================================================================
+   Messenger / Telegram Web UI Component Styles
+   ========================================================================== */
+
+.view-toggle-group {
+    display: flex;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 3px;
+    gap: 4px;
+}
+
+.view-toggle-group .btn {
+    border-radius: 6px;
+    border: none;
+    padding: 6px 12px;
+    font-size: 13px;
+}
+
+.view-toggle-group .btn.active {
+    background: var(--primary);
+    color: #070913;
+    font-weight: 600;
+}
+
+.messenger-box {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    height: calc(100vh - 290px);
+    min-height: 540px;
+    border-radius: 12px;
+    overflow: hidden;
+    background: rgba(12, 16, 33, 0.75);
+    border: 1px solid var(--border-color);
+}
+
+/* Dialogs Column */
+.messenger-dialogs-col {
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--border-color);
+    background: rgba(8, 10, 22, 0.85);
+}
+
+.messenger-search-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border-color);
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.messenger-search-bar i {
+    color: var(--text-muted);
+    font-size: 14px;
+}
+
+.messenger-search-bar input {
+    width: 100%;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #fff;
+    font-size: 13px;
+}
+
+.messenger-dialogs-list {
+    flex: 1;
+    overflow-y: auto;
+}
+
+.messenger-dialog-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    cursor: pointer;
+    transition: background 0.15s ease, border-left 0.15s ease;
+}
+
+.messenger-dialog-item:hover {
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.messenger-dialog-item.active {
+    background: rgba(0, 240, 255, 0.09);
+    border-left: 3px solid var(--primary);
+}
+
+.dialog-avatar {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, rgba(168, 85, 247, 0.5), rgba(0, 240, 255, 0.5));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-weight: 600;
+    font-size: 15px;
+    flex-shrink: 0;
+}
+
+.dialog-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.dialog-top-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 3px;
+}
+
+.dialog-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-main);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dialog-date {
+    font-size: 11px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+    margin-left: 6px;
+}
+
+.dialog-bottom-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.dialog-snippet {
+    font-size: 12px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dialog-unread {
+    background: var(--primary);
+    color: #070913;
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: 10px;
+    padding: 2px 7px;
+    min-width: 18px;
+    text-align: center;
+    flex-shrink: 0;
+    margin-left: 6px;
+}
+
+/* Chat & Messages Column */
+.messenger-chat-col {
+    display: flex;
+    flex-direction: column;
+    background: rgba(9, 12, 26, 0.6);
+}
+
+.messenger-chat-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border-color);
+    background: rgba(16, 20, 38, 0.5);
+}
+
+.messenger-chat-title-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.messenger-chat-title-info h4 {
+    font-size: 16px;
+    font-weight: 600;
+    color: #fff;
+    margin: 0;
+}
+
+.badge-type {
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-muted);
+}
+
+.messenger-messages-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.messenger-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--text-muted);
+    font-size: 14px;
+    text-align: center;
+    padding: 20px;
+}
+
+/* Speech Bubbles */
+.msg-bubble {
+    max-width: 68%;
+    padding: 10px 14px;
+    border-radius: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    position: relative;
+    word-break: break-word;
+    font-size: 13.5px;
+    line-height: 1.45;
+}
+
+.msg-bubble.incoming {
+    align-self: flex-start;
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom-left-radius: 3px;
+    color: var(--text-main);
+}
+
+.msg-bubble.outgoing {
+    align-self: flex-end;
+    background: linear-gradient(135deg, rgba(0, 240, 255, 0.2), rgba(168, 85, 247, 0.25));
+    border: 1px solid rgba(0, 240, 255, 0.3);
+    border-bottom-right-radius: 3px;
+    color: #fff;
+}
+
+.msg-sender {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--secondary);
+}
+
+.msg-meta {
+    font-size: 10.5px;
+    color: rgba(255, 255, 255, 0.5);
+    align-self: flex-end;
+    margin-top: 2px;
+}
+
+/* Input Bar */
+.messenger-input-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 18px;
+    border-top: 1px solid var(--border-color);
+    background: rgba(16, 20, 38, 0.7);
+}
+
+.messenger-input-bar input {
+    flex: 1;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--border-color);
+    padding: 10px 16px;
+    border-radius: 8px;
+    color: #fff;
+    font-size: 13.5px;
+    outline: none;
+    transition: border-color 0.2s ease;
+}
+
+.messenger-input-bar input:focus {
+    border-color: var(--primary);
+}
+
+/* Multi-Window Split Screen Grid */
+.messenger-split-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+    gap: 16px;
+}
+
+.split-window {
+    background: rgba(12, 16, 33, 0.85);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    height: 600px;
+}
+
+.split-window-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border-color);
+    background: rgba(16, 20, 38, 0.9);
+}
+
+.split-window-header select {
+    background: rgba(0,0,0,0.4);
+    border: 1px solid var(--border-color);
+    color: #fff;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 12.5px;
+    outline: none;
+}
+
+.split-window-body {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 140px 1fr;
+    overflow: hidden;
+}
+
+.split-dialogs {
+    border-right: 1px solid var(--border-color);
+    overflow-y: auto;
+    background: rgba(8, 10, 22, 0.7);
+}
+
+.split-dialog-item {
+    padding: 8px 10px;
+    font-size: 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.split-dialog-item.active {
+    background: rgba(0, 240, 255, 0.15);
+    border-left: 2px solid var(--primary);
+    color: #fff;
+    font-weight: 600;
+}
+
+.split-chat-area {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.split-messages-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.split-input-bar {
+    display: flex;
+    padding: 8px;
+    border-top: 1px solid var(--border-color);
+    gap: 6px;
+    background: rgba(16, 20, 38, 0.7);
+}
+
+.split-input-bar input {
+    flex: 1;
+    background: rgba(0,0,0,0.4);
+    border: 1px solid var(--border-color);
+    color: #fff;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    outline: none;
+}
+

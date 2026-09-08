@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Union
 
 from backend.database import Database
 from backend.telegram_client import TelegramManager
@@ -103,6 +103,11 @@ class IntervalPostRequest(BaseModel):
     account_images: Optional[Dict[str, str]] = None
     account_targets: Optional[Dict[str, List[str]]] = None
 
+class SendMessengerMessageRequest(BaseModel):
+    phone: str
+    chat_id: Union[int, str]
+    text: str
+
 
 # REST Endpoints
 @app.get("/api/accounts")
@@ -174,6 +179,30 @@ def get_scraped_members(status: Optional[str] = None):
 def clear_scraped_members():
     db.clear_scraped_members()
     return {"status": "success"}
+
+@app.get("/api/messenger/dialogs")
+async def get_messenger_dialogs(phone: str, limit: int = 40):
+    try:
+        dialogs = await TelegramManager.get_messenger_dialogs(phone, limit=limit)
+        return dialogs
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/api/messenger/messages")
+async def get_messenger_messages(phone: str, chat_id: str, limit: int = 50):
+    try:
+        messages = await TelegramManager.get_messenger_messages(phone, chat_id, limit=limit)
+        return messages
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/messenger/send")
+async def send_messenger_message(req: SendMessengerMessageRequest):
+    try:
+        res = await TelegramManager.send_messenger_message(req.phone, req.chat_id, req.text)
+        return res
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.get("/api/tasks/status")
 def get_task_status():
