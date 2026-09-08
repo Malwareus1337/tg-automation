@@ -37,6 +37,9 @@
                 <a href="#" class="menu-item" data-tab="adder">
                     <i class="fa-solid fa-person-circle-plus"></i> Üye Ekleme
                 </a>
+                <a href="#" class="menu-item" data-tab="joiner">
+                    <i class="fa-solid fa-right-to-bracket"></i> Gruba Katılma
+                </a>
                 <a href="#" class="menu-item" data-tab="messaging">
                     <i class="fa-solid fa-paper-plane"></i> Toplu Mesaj
                 </a>
@@ -322,6 +325,63 @@
                 </div>
             </section>
 
+            <!-- Group Joiner Tab -->
+            <section id="tab-joiner" class="tab-content">
+                <header class="tab-header">
+                    <h1>Gruba Katılma Otomasyonu</h1>
+                    <p>Telegram gruplarına ve kanallarına (açık veya özel davet linkleri) hesaplarınızla toplu veya sırayla katılın.</p>
+                </header>
+
+                <div class="card glass-panel">
+                    <h3><i class="fa-solid fa-right-to-bracket card-icon"></i> Katılım Kampanyası Yapılandırması</h3>
+                    
+                    <div class="form-group">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                            <label style="margin: 0; font-weight: 600;">Katılacak Hesaplar</label>
+                            <button type="button" class="btn btn-outline btn-sm" id="btn-joiner-toggle-all" style="padding: 2px 8px; font-size: 11px;"><i class="fa-solid fa-check-double"></i> Tümünü Seç / Kaldır</button>
+                        </div>
+                        <div class="account-checkbox-list" id="joiner-accounts-checkboxes">
+                            <!-- Dynamic checkboxes -->
+                            <p class="text-muted">Lütfen önce hesap ekleyin.</p>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="joiner-links">Grup / Kanal Linkleri veya Kullanıcı Adları (Her satıra bir adet yazın)</label>
+                        <textarea id="joiner-links" rows="7" placeholder="Örnek:&#10;https://t.me/kripto_sohbet&#10;https://t.me/+AbCdEfGh12345&#10;@kanalismi&#10;t.me/joinchat/XyZaBcDeFg"></textarea>
+                        <div style="display: flex; justify-content: space-between; margin-top: 5px; font-size: 12px; color: var(--text-muted);">
+                            <span><i class="fa-solid fa-circle-info"></i> Açık linkler, @kullanıcıadları ve t.me/+ özel davet linkleri desteklenir.</span>
+                            <span id="joiner-links-count" style="font-weight: bold; color: var(--primary);">0 link girildi</span>
+                        </div>
+                    </div>
+
+                    <div class="form-group-row">
+                        <div class="form-group">
+                            <label for="joiner-min-delay">Min Gecikme (saniye)</label>
+                            <input type="number" id="joiner-min-delay" value="5" min="1">
+                        </div>
+                        <div class="form-group">
+                            <label for="joiner-max-delay">Max Gecikme (saniye)</label>
+                            <input type="number" id="joiner-max-delay" value="15" min="2">
+                        </div>
+                    </div>
+
+                    <div style="background: rgba(0, 240, 255, 0.05); border: 1px solid rgba(0, 240, 255, 0.2); border-radius: 8px; padding: 12px; margin-bottom: 20px; font-size: 12.5px; line-height: 1.5; color: var(--text-muted);">
+                        <i class="fa-solid fa-shield-halved" style="color: var(--primary); margin-right: 6px;"></i>
+                        <strong>Güvenlik Tavsiyesi:</strong> Telegram hesaplarınızın spam veya FloodWait korumasına takılmaması için gecikmeyi 5-15 saniye arasında tutmanız tavsiye edilir. İlerleme durumunu aşağıdaki konsol ekranından canlı takip edebilirsiniz.
+                    </div>
+
+                    <div class="button-group">
+                        <button class="btn btn-primary" id="btn-start-join">
+                            <i class="fa-solid fa-play"></i> Katılma İşlemini Başlat
+                        </button>
+                        <button class="btn btn-danger hidden" id="btn-stop-join">
+                            <i class="fa-solid fa-circle-stop"></i> İşlemi Durdur
+                        </button>
+                    </div>
+                </div>
+            </section>
+
             <!-- Messaging Tab -->
             <section id="tab-messaging" class="tab-content">
                 <header class="tab-header">
@@ -488,6 +548,9 @@
                             <button class="btn btn-outline btn-sm" id="btn-show-all-chats" title="Tüm Numaraların Katıldığı Grupları ve Linklerini Gör">
                                 <i class="fa-solid fa-list-check neon-text"></i> Gruplar & Linkler
                             </button>
+                            <button class="btn btn-outline btn-sm" onclick="switchTab('joiner')" title="Grup Linklerine Hesapları Otomatik Sok" style="border-color: rgba(0, 240, 255, 0.4); color: var(--primary);">
+                                <i class="fa-solid fa-right-to-bracket"></i> Gruba Katıl
+                            </button>
                             <div class="view-toggle-group">
                                 <button class="btn btn-outline btn-sm tgweb-col-btn" data-cols="2" title="Yan Yana 2 Pencere">2'li</button>
                                 <button class="btn btn-outline btn-sm tgweb-col-btn active" data-cols="3" title="Yan Yana 3 Pencere">3'lü</button>
@@ -616,13 +679,13 @@
             <div class="modal-footer">
                 <span class="text-muted" style="font-size: 13px;" id="modal-chats-count">0 Grup/Kanal Bulundu</span>
                 <div style="display: flex; gap: 10px;">
-                    <button class="btn btn-outline btn-sm" id="btn-copy-all-links"><i class="fa-solid fa-copy"></i> Linkleri Kopyala</button>
+                    <button class="btn btn-outline btn-sm" id="btn-copy-all-links" onclick="copyAllModalLinks()"><i class="fa-solid fa-copy"></i> Linkleri Kopyala</button>
                     <button class="btn btn-primary btn-sm" id="btn-modal-close-action" onclick="closeAccountChatsModal()">Kapat</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <script src="static/app.js?v=11"></script>
+    <script src="static/app.js?v=12"></script>
 </body>
 </html>

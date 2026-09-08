@@ -6,6 +6,20 @@ const WS_BASE = window.location.origin.replace(/^http/, 'ws');
 let accounts = [];
 let taskInterval = null;
 let ws = null;
+window.currentModalLinks = [];
+
+// Tab Switcher Helper
+window.switchTab = function(tabName) {
+    const targetItem = document.querySelector(`.menu-item[data-tab="${tabName}"]`);
+    const targetSection = document.getElementById(`tab-${tabName}`);
+    if (targetItem && targetSection) {
+        document.querySelectorAll('.menu-item').forEach(s => s.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+        targetItem.classList.add('active');
+        targetSection.classList.add('active');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+};
 
 // DOM Elements
 const sidebarItems = document.querySelectorAll('.menu-item');
@@ -179,18 +193,21 @@ async function loadAccounts() {
         const tbody = document.getElementById('accounts-list-body');
         const scrapeSelect = document.getElementById('scrape-account');
         const adderCheckboxes = document.getElementById('adder-accounts-checkboxes');
+        const joinerCheckboxes = document.getElementById('joiner-accounts-checkboxes');
         const msgCheckboxes = document.getElementById('msg-accounts-checkboxes');
         const autopostContainer = document.getElementById('autopost-accounts-container');
         
         tbody.innerHTML = '';
         scrapeSelect.innerHTML = '';
         adderCheckboxes.innerHTML = '';
+        if (joinerCheckboxes) joinerCheckboxes.innerHTML = '';
         msgCheckboxes.innerHTML = '';
         if (autopostContainer) autopostContainer.innerHTML = '';
         
         if (accounts.length === 0) {
             tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted">Eklenmiş hesap bulunmuyor.</td></tr>`;
             adderCheckboxes.innerHTML = `<p class="text-muted">Lütfen önce hesap ekleyin.</p>`;
+            if (joinerCheckboxes) joinerCheckboxes.innerHTML = `<p class="text-muted">Lütfen önce hesap ekleyin.</p>`;
             msgCheckboxes.innerHTML = `<p class="text-muted">Lütfen önce hesap ekleyin.</p>`;
             if (autopostContainer) autopostContainer.innerHTML = `<p class="text-muted">Lütfen önce hesap ekleyin.</p>`;
             return;
@@ -244,6 +261,7 @@ async function loadAccounts() {
                 <span>${acc.phone} (${acc.status === 'active' ? 'Aktif' : 'Pasif'})</span>
             `;
             adderCheckboxes.appendChild(label.cloneNode(true));
+            if (joinerCheckboxes) joinerCheckboxes.appendChild(label.cloneNode(true));
             msgCheckboxes.appendChild(label);
 
             // Autopost Custom Card per account
@@ -412,6 +430,7 @@ async function pollTaskStatus() {
         toggleTaskBtn('add', 'btn-start-add', 'btn-stop-add');
         toggleTaskBtn('send', 'btn-start-send', 'btn-stop-send');
         toggleTaskBtn('autopost', 'btn-start-autopost', 'btn-stop-autopost');
+        toggleTaskBtn('join', 'btn-start-join', 'btn-stop-join');
     } catch(e) {
         console.error("Task status poll error:", e);
     }
@@ -857,12 +876,81 @@ function bindEvents() {
         });
     }
 
+    // 8b. Group Joiner
+    const btnStartJoin = document.getElementById('btn-start-join');
+    if (btnStartJoin) {
+        btnStartJoin.addEventListener('click', async () => {
+            const checkboxes = document.querySelectorAll('#joiner-accounts-checkboxes input[name="use-accounts"]:checked, #joiner-accounts-checkboxes input[type="checkbox"]:checked');
+            const phones = Array.from(checkboxes).map(c => c.value);
+            const linksVal = document.getElementById('joiner-links').value.trim();
+            const min_delay = parseInt(document.getElementById('joiner-min-delay').value) || 5;
+            const max_delay = parseInt(document.getElementById('joiner-max-delay').value) || 15;
+
+            if (phones.length === 0) {
+                showToast("Lütfen katılacak en az bir aktif hesap seçin.", "warning");
+                return;
+            }
+            if (!linksVal) {
+                showToast("Lütfen katılmak istediğiniz grup/kanal linklerini yazın.", "warning");
+                return;
+            }
+
+            const links = linksVal.split('\n').map(l => l.trim()).filter(l => l.length > 0 && !l.startsWith('#'));
+            if (links.length === 0) {
+                showToast("Geçerli bir link bulunamadı.", "warning");
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_BASE}/api/tasks/join`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        phones_to_use: phones,
+                        group_links: links,
+                        min_delay: min_delay,
+                        max_delay: max_delay
+                    })
+                });
+                if (res.ok) {
+                    showToast("Gruba katılma işlemi başlatıldı! İlerlemeyi konsoldan izleyebilirsiniz.", "success");
+                    pollTaskStatus();
+                } else {
+                    const data = await res.json();
+                    showToast(data.detail || "İşlem başlatılamadı.", "error");
+                }
+            } catch(e) {
+                showToast("Ağ hatası oluştu.", "error");
+            }
+        });
+    }
+
+    const btnJoinerToggleAll = document.getElementById('btn-joiner-toggle-all');
+    if (btnJoinerToggleAll) {
+        btnJoinerToggleAll.addEventListener('click', () => {
+            const boxes = document.querySelectorAll('#joiner-accounts-checkboxes input[type="checkbox"]');
+            if (boxes.length === 0) return;
+            const allChecked = Array.from(boxes).every(b => b.checked);
+            boxes.forEach(b => { if (!b.disabled) b.checked = !allChecked; });
+        });
+    }
+
+    const joinerLinksTextarea = document.getElementById('joiner-links');
+    const joinerLinksCount = document.getElementById('joiner-links-count');
+    if (joinerLinksTextarea && joinerLinksCount) {
+        joinerLinksTextarea.addEventListener('input', () => {
+            const count = joinerLinksTextarea.value.split('\n').map(l => l.trim()).filter(l => l.length > 0 && !l.startsWith('#')).length;
+            joinerLinksCount.textContent = `${count} link girildi`;
+        });
+    }
+
     // 9. Stops - Independent Task cancellation binding
     const stopButtonMap = {
         'btn-stop-scrape': 'scrape',
         'btn-stop-add': 'add',
         'btn-stop-send': 'send',
-        'btn-stop-autopost': 'autopost'
+        'btn-stop-autopost': 'autopost',
+        'btn-stop-join': 'join'
     };
 
     Object.entries(stopButtonMap).forEach(([btnId, taskType]) => {
@@ -1033,14 +1121,9 @@ function bindEvents() {
     }
 
     if (copyAllLinksBtn) {
-        copyAllLinksBtn.addEventListener('click', () => {
-            if (currentModalLinks.length > 0) {
-                const uniqueLinks = [...new Set(currentModalLinks)];
-                navigator.clipboard.writeText(uniqueLinks.join('\n'));
-                showToast(`${uniqueLinks.length} adet link panoya kopyalandı!`, "success");
-            } else {
-                showToast("Kopyalanacak link bulunamadı.", "warning");
-            }
+        copyAllLinksBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            window.copyAllModalLinks();
         });
     }
 }
@@ -1634,7 +1717,7 @@ window.showAccountChats = async function(phone = null) {
 
     modal.style.display = 'flex';
     modal.classList.add('active');
-    currentModalLinks = [];
+    window.currentModalLinks = [];
 
     if (phone) {
         modalTitle.textContent = `${phone} - Katılınan Gruplar & Linkler`;
@@ -1794,56 +1877,87 @@ window.showAccountChats = async function(phone = null) {
     }
 };
 
-window.copyTextToClipboard = function(text) {
-    if (!text) return;
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(() => {
-            showToast("Link panoya kopyalandı!", "success");
-        }).catch(() => {
-            fallbackCopy(text);
-        });
+window.copyAllModalLinks = function() {
+    let links = [];
+    if (Array.isArray(window.currentModalLinks) && window.currentModalLinks.length > 0) {
+        links = [...window.currentModalLinks];
+    }
+    // Also extract all links rendered in the DOM of the modal
+    document.querySelectorAll('#modal-chats-body [data-link]').forEach(el => {
+        const l = el.getAttribute('data-link');
+        if (l && l.trim()) links.push(l.trim());
+    });
+    document.querySelectorAll('#modal-chats-body a.chat-link-btn').forEach(a => {
+        const href = a.getAttribute('href');
+        if (href && href.startsWith('http')) links.push(href.trim());
+    });
+
+    const uniqueLinks = [...new Set(links.filter(Boolean))];
+    if (uniqueLinks.length > 0) {
+        window.copyTextToClipboard(uniqueLinks.join('\n'), `Toplam ${uniqueLinks.length} adet link panoya kopyalandı!`);
     } else {
-        fallbackCopy(text);
+        showToast("Kopyalanacak grup/kanal linki bulunamadı. (Özel grupların açık linki bulunmaz)", "warning");
     }
 };
 
-function fallbackCopy(text) {
-    const ta = document.createElement("textarea");
-    ta.value = text;
-    ta.setAttribute("readonly", "");
-    ta.style.position = "fixed";
-    ta.style.top = "-9999px";
-    ta.style.left = "-9999px";
-    document.body.appendChild(ta);
-    ta.focus();
-    ta.select();
-    try {
-        const success = document.execCommand('copy');
-        if (success) showToast("Link panoya kopyalandı!", "success");
-        else showToast("Kopyalama başarısız.", "error");
-    } catch (e) {
-        showToast("Kopyalama başarısız.", "error");
+window.copyTextToClipboard = function(text, customToast = "Link panoya kopyalandı!") {
+    if (!text) {
+        showToast("Kopyalanacak veri bulunamadı.", "warning");
+        return;
     }
-    document.body.removeChild(ta);
-}
+
+    let copied = false;
+    try {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.setAttribute("readonly", "");
+        ta.style.position = "fixed";
+        ta.style.top = "10px";
+        ta.style.left = "10px";
+        ta.style.width = "40px";
+        ta.style.height = "20px";
+        ta.style.opacity = "0.01";
+        ta.style.zIndex = "99999999";
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        ta.setSelectionRange(0, 999999);
+        copied = document.execCommand('copy');
+        document.body.removeChild(ta);
+    } catch (e) {
+        copied = false;
+    }
+
+    if (copied) {
+        showToast(customToast, "success");
+    } else if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+            showToast(customToast, "success");
+        }).catch(() => {
+            window.prompt("Linkleri kopyalamak için Ctrl+C tuşlarına basın:", text);
+        });
+    } else {
+        window.prompt("Linkleri kopyalamak için Ctrl+C tuşlarına basın:", text);
+    }
+};
 
 window.copyAccountLinks = function(phone) {
     fetch(`${API_BASE}/api/accounts/${encodeURIComponent(phone)}/chats`)
         .then(r => r.json())
         .then(data => {
             const links = (data.chats || []).map(c => c.link).filter(Boolean);
-            if (links.length > 0) {
-                const uniqueLinks = [...new Set(links)];
-                window.copyTextToClipboard(uniqueLinks.join('\n'));
-                showToast(`${uniqueLinks.length} adet link kopyalandı!`, "success");
+            const unique = [...new Set(links)];
+            if (unique.length > 0) {
+                window.copyTextToClipboard(unique.join('\n'), `${phone}: ${unique.length} adet link kopyalandı!`);
             } else {
-                showToast("Kopyalanacak bağlantı bulunamadı.", "warning");
+                showToast(`${phone}: Kopyalanacak bağlantı bulunamadı.`, "warning");
             }
         })
         .catch(() => {
-            showToast("Linkler kopyalanamadı.", "error");
+            showToast("Bağlantılar alınırken hata oluştu.", "error");
         });
 };
+
 
 
 

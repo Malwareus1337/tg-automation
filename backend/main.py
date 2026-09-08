@@ -109,6 +109,12 @@ class SendMessengerMessageRequest(BaseModel):
     chat_id: Union[int, str]
     text: str
 
+class JoinTaskRequest(BaseModel):
+    phones_to_use: List[str]
+    group_links: List[str]
+    min_delay: Optional[int] = 5
+    max_delay: Optional[int] = 15
+
 
 # REST Endpoints
 @app.get("/api/accounts")
@@ -323,6 +329,7 @@ def get_task_status():
             "add": status_dict.get("add", False),
             "send": status_dict.get("send", False),
             "autopost": status_dict.get("autopost", False),
+            "join": status_dict.get("join", False),
         }
     }
 
@@ -547,6 +554,33 @@ async def start_autopost(req: IntervalPostRequest):
         raise HTTPException(status_code=400, detail="Otomatik paylaşım işlemi zaten çalışıyor.")
     active_tasks["autopost"] = asyncio.create_task(run_interval_post_task(req))
     return {"status": "started"}
+
+async def run_join_task(req: JoinTaskRequest):
+    async def log_cb(msg):
+        await log_broadcaster.send_log(msg)
+        
+    try:
+        await log_cb(f"🚀 Gruba katılma görevi başladı. Toplam {len(req.group_links)} grup/kanal linki, {len(req.phones_to_use)} hesap ile işlenecek.")
+        res = await TelegramManager.join_groups(
+            phones_to_use=req.phones_to_use,
+            group_links=req.group_links,
+            min_delay=req.min_delay or 5,
+            max_delay=req.max_delay or 15,
+            log_callback=log_cb
+        )
+        await log_cb(f"🏁 Gruba katılma işlemi tamamlandı! Başarılı: {res['success']}, Zaten Üye: {res['already_joined']}, Hatalı/Atlanan: {res['failed']}.")
+    except asyncio.CancelledError:
+        await log_cb("🛑 Gruba katılma işlemi kullanıcı tarafından durduruldu.")
+    except Exception as e:
+        await log_cb(f"❌ Gruba katılma görevinde hata: {str(e)}")
+
+@app.post("/api/tasks/join")
+async def start_join(req: JoinTaskRequest):
+    if "join" in active_tasks and not active_tasks["join"].done():
+        raise HTTPException(status_code=400, detail="Gruba katılma işlemi zaten çalışıyor.")
+    active_tasks["join"] = asyncio.create_task(run_join_task(req))
+    return {"status": "started"}
+
 
 @app.get("/api/accounts/{phone}/chats")
 async def get_account_chats(phone: str):

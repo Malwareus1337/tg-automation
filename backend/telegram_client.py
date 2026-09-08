@@ -6,8 +6,12 @@ import random
 from telethon import TelegramClient
 from telethon.tl.types import UserStatusOnline, UserStatusOffline, UserStatusRecently, UserStatusLastWeek, UserStatusLastMonth
 from telethon.tl.functions.channels import InviteToChannelRequest, JoinChannelRequest
-from telethon.tl.functions.messages import ImportChatInviteRequest
-from telethon.errors import PeerFloodError, UserPrivacyRestrictedError, FloodWaitError, SessionPasswordNeededError
+from telethon.tl.functions.messages import ImportChatInviteRequest, CheckChatInviteRequest, ExportChatInviteRequest
+from telethon.errors import (
+    PeerFloodError, UserPrivacyRestrictedError, FloodWaitError, SessionPasswordNeededError,
+    UserAlreadyParticipantError, InviteHashExpiredError, InviteHashInvalidError,
+    ChannelsTooMuchError, UserBannedInChannelError
+)
 from backend.database import Database
 
 SESSIONS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sessions")
@@ -520,7 +524,19 @@ class TelegramManager:
             async for dialog in client.iter_dialogs():
                 if dialog.is_group or dialog.is_channel:
                     username = getattr(dialog.entity, 'username', None)
+                    if not username and hasattr(dialog.entity, 'usernames') and dialog.entity.usernames:
+                        for u in dialog.entity.usernames:
+                            if getattr(u, 'active', False):
+                                username = u.username
+                                break
                     link = f"https://t.me/{username}" if username else None
+                    if not link and getattr(dialog.entity, 'creator', False):
+                        try:
+                            inv = await client(ExportChatInviteRequest(dialog.entity))
+                            if hasattr(inv, 'link'):
+                                link = inv.link
+                        except Exception:
+                            pass
                     chat_type = "Kanal" if dialog.is_channel else "Grup"
                     chats.append({
                         "id": dialog.id,
@@ -632,4 +648,169 @@ class TelegramManager:
             "out": True,
             "sender_name": "Ben"
         }
+
+    @staticmethod
+    async def join_groups(phones_to_use, group_links, min_delay=5, max_delay=15, log_callback=None):
+        if not phones_to_use:
+            raise ValueError("En az bir hesap seçmelisiniz.")
+        if not group_links:
+            raise ValueError("En az bir grup veya kanal linki girmelisiniz.")
+
+        all_accounts = db.get_accounts()
+        clients = {}
+        for phone in phones_to_use:
+            acc = next((a for a in all_accounts if a["phone"] == phone), None)
+            if acc:
+                try:
+                    c = await TelegramManager.ensure_connected(acc)
+                    if await c.is_user_authorized():
+                        clients[phone] = c
+                        if log_callback:
+                            await log_callback(f"Hesap doğrulandı ve hazır: {phone}")
+                    else:
+                        db.update_account_status(phone, "need_login")
+                        if log_callback:
+                            await log_callback(f"Hesaba giriş gerekli: {phone}")
+                except Exception as e:
+                    if log_callback:
+                        await log_callback(f"Hesap bağlantı hatası ({phone}): {str(e)}")
+
+        if not clients:
+            raise ValueError("Kullanılabilir aktif hesap bulunamadı.")
+
+        # Clean links
+        cleaned_links = []
+        for raw in group_links:
+            item = raw.strip().strip('"').strip("'")
+            if item and not item.startswith("#") and item not in cleaned_links:
+                cleaned_links.append(item)
+
+        if not cleaned_links:
+            raise ValueError("Geçerli bir grup/kanal bağlantısı bulunamadı.")
+
+        total_links = len(cleaned_links)
+        success_count = 0
+        already_count = 0
+        failed_count = 0
+
+        for phone, client in clients.items():
+            if log_callback:
+                await log_callback(f"📌 [{phone}] Numarası için katılım işlemleri başlatılıyor ({total_links} link)...")
+
+            for idx, raw_link in enumerate(cleaned_links):
+                link = raw_link.strip().strip('"').strip("'")
+                if not link:
+                    continue
+
+                if log_callback:
+                    await log_callback(f"[{phone}] ({idx+1}/{total_links}) İşleniyor: {link}")
+
+                is_invite = ("t.me/+" in link or "t.me/joinchat/" in link or link.startswith("+"))
+
+                try:
+                    if is_invite:
+                        clean_inv = link.split("?")[0].rstrip("/")
+                        if "+" in clean_inv:
+                            invite_hash = clean_inv.split("+")[-1].strip("/")
+                        elif "joinchat/" in clean_inv:
+                            invite_hash = clean_inv.split("joinchat/")[-1].strip("/")
+                        else:
+                            invite_hash = clean_inv.lstrip("+")
+
+                        try:
+                            res = await client(ImportChatInviteRequest(invite_hash))
+                            group_title = res.chats[0].title if (hasattr(res, 'chats') and res.chats) else link
+                            success_count += 1
+                            if log_callback:
+                                await log_callback(f"✅ [{phone}] Özel davet ile başarıyla katıldı: {group_title}")
+                        except UserAlreadyParticipantError:
+                            already_count += 1
+                            if log_callback:
+                                await log_callback(f"ℹ️ [{phone}] Zaten bu gruba üyesiniz: {link}")
+                        except InviteHashExpiredError:
+                            failed_count += 1
+                            if log_callback:
+                                await log_callback(f"⚠️ [{phone}] Davet linkinin süresi dolmuş: {link}")
+                        except InviteHashInvalidError:
+                            failed_count += 1
+                            if log_callback:
+                                await log_callback(f"❌ [{phone}] Geçersiz davet linki: {link}")
+                        except Exception as e:
+                            err_str = str(e)
+                            if "already a participant" in err_str.lower():
+                                already_count += 1
+                                if log_callback:
+                                    await log_callback(f"ℹ️ [{phone}] Zaten bu gruba üyesiniz: {link}")
+                            else:
+                                failed_count += 1
+                                if log_callback:
+                                    await log_callback(f"❌ [{phone}] Davet katılım hatası: {err_str}")
+                    else:
+                        # Public username or t.me link
+                        uname = link.split("?")[0].rstrip("/")
+                        for pfx in ["https://t.me/", "http://t.me/", "t.me/"]:
+                            if uname.startswith(pfx):
+                                uname = uname[len(pfx):]
+                                break
+                        uname = uname.lstrip("@").strip("/")
+                        if not uname:
+                            continue
+
+                        try:
+                            entity = await client.get_entity(uname)
+                            await client(JoinChannelRequest(entity))
+                            group_title = getattr(entity, 'title', uname)
+                            success_count += 1
+                            if log_callback:
+                                await log_callback(f"✅ [{phone}] Başarıyla katıldı: {group_title}")
+                        except UserAlreadyParticipantError:
+                            already_count += 1
+                            if log_callback:
+                                await log_callback(f"ℹ️ [{phone}] Zaten bu gruba üyesiniz: @{uname}")
+                        except ChannelsTooMuchError:
+                            failed_count += 1
+                            if log_callback:
+                                await log_callback(f"⚠️ [{phone}] Bu hesap maksimum kanal/grup limitine (500) ulaştı.")
+                            break
+                        except Exception as e:
+                            err_str = str(e)
+                            if "already a participant" in err_str.lower():
+                                already_count += 1
+                                if log_callback:
+                                    await log_callback(f"ℹ️ [{phone}] Zaten bu gruba üyesiniz: @{uname}")
+                            else:
+                                failed_count += 1
+                                if log_callback:
+                                    await log_callback(f"❌ [{phone}] Katılım hatası (@{uname}): {err_str}")
+
+                except FloodWaitError as fe:
+                    if log_callback:
+                        await log_callback(f"⏳ [{phone}] Telegram FloodWait kısıtlaması: {fe.seconds} saniye bekleniyor...")
+                    if fe.seconds > 180:
+                        if log_callback:
+                            await log_callback(f"⚠️ [{phone}] Bekleme süresi çok uzun ({fe.seconds}s), bu hesap sonraki adıma geçiriliyor.")
+                        break
+                    else:
+                        await asyncio.sleep(fe.seconds + 1)
+                except asyncio.CancelledError:
+                    raise
+                except Exception as e:
+                    failed_count += 1
+                    if log_callback:
+                        await log_callback(f"❌ Beklenmedik hata ({link}): {str(e)}")
+
+                # Delay between joins
+                if idx < len(cleaned_links) - 1:
+                    sleep_time = random.uniform(min_delay, max_delay)
+                    if log_callback:
+                        await log_callback(f"⏳ Sonraki katılma işlemi için {sleep_time:.1f} saniye bekleniyor...")
+                    await asyncio.sleep(sleep_time)
+
+        return {
+            "success": success_count,
+            "already_joined": already_count,
+            "failed": failed_count,
+            "total": total_links * len(clients)
+        }
+
 
