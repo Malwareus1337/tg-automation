@@ -519,10 +519,16 @@ class TelegramManager:
             chats = []
             async for dialog in client.iter_dialogs():
                 if dialog.is_group or dialog.is_channel:
+                    username = getattr(dialog.entity, 'username', None)
+                    link = f"https://t.me/{username}" if username else None
+                    chat_type = "Kanal" if dialog.is_channel else "Grup"
                     chats.append({
                         "id": dialog.id,
-                        "title": dialog.name,
-                        "username": getattr(dialog.entity, 'username', None)
+                        "title": dialog.name or "İsimsiz",
+                        "type": chat_type,
+                        "username": username,
+                        "link": link,
+                        "unread_count": dialog.unread_count or 0
                     })
             return chats
         finally:

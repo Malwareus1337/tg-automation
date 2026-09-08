@@ -215,6 +215,9 @@ async function loadAccounts() {
                 <td>${statusBadge}</td>
                 <td>${floodWaitMin}</td>
                 <td>
+                    <button class="btn btn-outline btn-info btn-sm" onclick="showAccountChats('${acc.phone}')" style="padding: 4px 8px; font-size: 12px; margin-right: 4px;" title="Katıldığı Grupları ve Linkleri Listele">
+                        <i class="fa-solid fa-list-check"></i> Gruplar
+                    </button>
                     <button class="btn btn-outline btn-primary btn-sm" onclick="checkAccount('${acc.phone}')" style="padding: 4px 8px; font-size: 12px; margin-right: 4px;" title="Hesabı Yeniden Kontrol Et">
                         <i class="fa-solid fa-rotate"></i> Kontrol Et
                     </button>
@@ -1007,6 +1010,39 @@ function bindEvents() {
             showToast("Tüm açık pencereler yenilendi.", "info");
         });
     }
+
+    // Modal Events for Account Chats & Links
+    const modalCloseBtn = document.getElementById('btn-close-chats-modal');
+    const modalCloseAction = document.getElementById('btn-modal-close-action');
+    const copyAllLinksBtn = document.getElementById('btn-copy-all-links');
+    const modalOverlay = document.getElementById('modal-account-chats');
+    const btnShowAllChats = document.getElementById('btn-show-all-chats');
+
+    if (modalCloseBtn) modalCloseBtn.addEventListener('click', () => modalOverlay.classList.remove('active'));
+    if (modalCloseAction) modalCloseAction.addEventListener('click', () => modalOverlay.classList.remove('active'));
+    if (modalOverlay) {
+        modalOverlay.addEventListener('click', (e) => {
+            if (e.target === modalOverlay) modalOverlay.classList.remove('active');
+        });
+    }
+
+    if (btnShowAllChats) {
+        btnShowAllChats.addEventListener('click', () => {
+            showAccountChats();
+        });
+    }
+
+    if (copyAllLinksBtn) {
+        copyAllLinksBtn.addEventListener('click', () => {
+            if (currentModalLinks.length > 0) {
+                const uniqueLinks = [...new Set(currentModalLinks)];
+                navigator.clipboard.writeText(uniqueLinks.join('\n'));
+                showToast(`${uniqueLinks.length} adet link panoya kopyalandı!`, "success");
+            } else {
+                showToast("Kopyalanacak link bulunamadı.", "warning");
+            }
+        });
+    }
 }
 
 // ==========================================
@@ -1471,17 +1507,36 @@ function addTgWebFrame() {
     const frameOrigin = `http://acc${frameNum}.localhost:8000`;
     let currentVersion = 'k';
 
+    // Auto-assign account or load from localStorage
+    const activeAccs = cachedAccounts.filter(a => a.status === 'active');
+    let savedPhone = localStorage.getItem(`tgweb_acc_${frameNum}`) || (activeAccs[frameNum - 1]?.phone || '');
+
     const card = document.createElement('div');
     card.className = 'tgweb-card glass-panel';
     card.id = cardId;
 
+    // Build account options
+    let accOptions = '<option value="">-- Hesap Seç / Etiketle --</option>';
+    cachedAccounts.forEach(a => {
+        const isSel = (a.phone === savedPhone) ? 'selected' : '';
+        accOptions += `<option value="${a.phone}" ${isSel}>${a.phone} (${a.status})</option>`;
+    });
+
     card.innerHTML = `
         <div class="tgweb-card-header">
             <div class="tgweb-card-title">
-                <span class="badge badge-primary"><i class="fa-brands fa-telegram"></i> Telegram Web #${frameNum}</span>
-                <span style="font-size: 11.5px; color: var(--text-muted);">İzole Alan: acc${frameNum}.localhost</span>
+                <span class="badge badge-primary"><i class="fa-brands fa-telegram"></i> Pencere #${frameNum}</span>
+                <span class="tgweb-user-badge" id="${cardId}_badge">
+                    <i class="fa-solid fa-user-check"></i> <span id="${cardId}_phone_text">${savedPhone || 'Hesap Seçilmedi'}</span>
+                </span>
+                <select class="tgweb-acc-select" id="${cardId}_acc_select" title="Bu pencereye ait hesabı etiketle">
+                    ${accOptions}
+                </select>
             </div>
             <div class="tgweb-card-actions">
+                <button class="tgweb-btn-chats" id="${cardId}_btn_chats" title="Bu Hesabın Katıldığı Grupları ve Linklerini Listele">
+                    <i class="fa-solid fa-list-check"></i> Gruplar
+                </button>
                 <select class="tgweb-version-select" title="Telegram Web Sürümü">
                     <option value="k" selected>Web K (Klasik)</option>
                     <option value="a">Web A (Yeni)</option>
@@ -1501,6 +1556,26 @@ function addTgWebFrame() {
     const reloadBtn = card.querySelector('.tgweb-btn-reload');
     const popupBtn = card.querySelector('.tgweb-btn-popup');
     const closeBtn = card.querySelector('.tgweb-btn-close');
+    const accSelect = card.querySelector(`#${cardId}_acc_select`);
+    const phoneText = card.querySelector(`#${cardId}_phone_text`);
+    const chatsBtn = card.querySelector(`#${cardId}_btn_chats`);
+
+    // Account change listener
+    accSelect.addEventListener('change', (e) => {
+        const val = e.target.value;
+        savedPhone = val;
+        localStorage.setItem(`tgweb_acc_${frameNum}`, val);
+        if (phoneText) phoneText.textContent = val || 'Hesap Seçilmedi';
+    });
+
+    // View groups button
+    chatsBtn.addEventListener('click', () => {
+        if (savedPhone) {
+            showAccountChats(savedPhone);
+        } else {
+            showAccountChats();
+        }
+    });
 
     // Switch version
     versionSelect.addEventListener('change', (e) => {
@@ -1521,6 +1596,182 @@ function addTgWebFrame() {
     // Close
     closeBtn.addEventListener('click', () => {
         card.remove();
+        localStorage.removeItem(`tgweb_acc_${frameNum}`);
     });
 }
+
+// ==========================================
+// Account Chats & Links Modal Viewer
+// ==========================================
+
+let currentModalLinks = [];
+
+async function showAccountChats(phone = null) {
+    const modal = document.getElementById('modal-account-chats');
+    const modalTitle = document.getElementById('modal-chats-title');
+    const modalBody = document.getElementById('modal-chats-body');
+    const modalCount = document.getElementById('modal-chats-count');
+    if (!modal || !modalBody) return;
+
+    modal.classList.add('active');
+    currentModalLinks = [];
+
+    if (phone) {
+        modalTitle.textContent = `${phone} - Katılınan Gruplar & Linkler`;
+        modalBody.innerHTML = `
+            <div style="text-align: center; padding: 40px; color: var(--text-muted);">
+                <i class="fa-solid fa-spinner fa-spin" style="font-size: 32px; margin-bottom: 12px;"></i>
+                <p>${phone} numarasına ait gruplar canlı olarak taranıyor...</p>
+            </div>
+        `;
+
+        try {
+            const res = await fetch(`${API_BASE}/api/accounts/${encodeURIComponent(phone)}/chats`);
+            if (!res.ok) {
+                const err = await res.json();
+                modalBody.innerHTML = `<div class="text-danger p-4">Gruplar alınamadı: ${err.detail || 'Hata'}</div>`;
+                return;
+            }
+            const data = await res.json();
+            const chats = data.chats || [];
+            modalCount.textContent = `${chats.length} Grup / Kanal Bulundu`;
+
+            if (chats.length === 0) {
+                modalBody.innerHTML = `<div style="text-align: center; padding: 30px; color: var(--text-muted);">Bu hesap henüz herhangi bir gruba veya kanala katılmamış.</div>`;
+                return;
+            }
+
+            let html = `
+                <table class="chats-list-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 40px;">#</th>
+                            <th>Grup / Kanal Adı</th>
+                            <th style="width: 90px;">Tür</th>
+                            <th>Bağlantı Linki</th>
+                            <th style="width: 80px; text-align: center;">İşlem</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            chats.forEach((c, idx) => {
+                if (c.link) currentModalLinks.push(c.link);
+                const linkHtml = c.link 
+                    ? `<a href="${c.link}" target="_blank" class="chat-link-btn"><i class="fa-solid fa-arrow-up-right-from-square"></i> ${c.link}</a>`
+                    : `<span class="text-muted"><i class="fa-solid fa-lock"></i> Özel Grup (Link yok)</span>`;
+
+                html += `
+                    <tr>
+                        <td>${idx + 1}</td>
+                        <td><strong>${c.title}</strong></td>
+                        <td><span class="badge ${c.type === 'Kanal' ? 'badge-primary' : 'badge-secondary'}">${c.type}</span></td>
+                        <td>${linkHtml}</td>
+                        <td style="text-align: center;">
+                            ${c.link ? `<button class="btn btn-outline btn-sm" onclick="copyTextToClipboard('${c.link}')" title="Linki Kopyala" style="padding: 2px 7px; font-size: 11px;"><i class="fa-solid fa-copy"></i></button>` : '-'}
+                        </td>
+                    </tr>
+                `;
+            });
+
+            html += `</tbody></table>`;
+            modalBody.innerHTML = html;
+        } catch(e) {
+            modalBody.innerHTML = `<div class="text-danger p-4">Ağ hatası oluştu.</div>`;
+        }
+    } else {
+        modalTitle.textContent = `Tüm Numaraların Katıldığı Gruplar & Linkler`;
+        modalBody.innerHTML = `
+            <div style="text-align: center; padding: 40px; color: var(--text-muted);">
+                <i class="fa-solid fa-spinner fa-spin" style="font-size: 32px; margin-bottom: 12px;"></i>
+                <p>Tüm aktif hesapların grupları taranıyor...</p>
+            </div>
+        `;
+
+        try {
+            const res = await fetch(`${API_BASE}/api/accounts-chats/all`);
+            const allData = await res.json();
+            let totalChats = 0;
+            let html = '';
+
+            allData.forEach(item => {
+                const chats = item.chats || [];
+                totalChats += chats.length;
+
+                html += `
+                    <div style="margin-bottom: 24px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: 10px; padding: 14px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <h4 style="color: var(--primary);"><i class="fa-solid fa-mobile-screen"></i> ${item.phone} <span style="font-size: 12px; color: var(--text-muted); font-weight: normal;">(${chats.length} Grup/Kanal)</span></h4>
+                            <button class="btn btn-outline btn-sm" onclick="copyAccountLinks('${item.phone}')" style="padding: 3px 8px; font-size: 11.5px;"><i class="fa-solid fa-copy"></i> Bu Numaranın Linklerini Kopyala</button>
+                        </div>
+                `;
+
+                if (chats.length === 0) {
+                    html += `<p class="text-muted" style="font-size: 12.5px;">Bu hesapta grup bulunamadı veya hesap pasif.</p>`;
+                } else {
+                    html += `
+                        <table class="chats-list-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 35px;">#</th>
+                                    <th>Grup / Kanal</th>
+                                    <th style="width: 80px;">Tür</th>
+                                    <th>Link</th>
+                                    <th style="width: 50px;"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                    `;
+                    chats.forEach((c, idx) => {
+                        if (c.link) currentModalLinks.push(c.link);
+                        html += `
+                            <tr>
+                                <td>${idx + 1}</td>
+                                <td><strong>${c.title}</strong></td>
+                                <td><span class="badge ${c.type === 'Kanal' ? 'badge-primary' : 'badge-secondary'}">${c.type}</span></td>
+                                <td>${c.link ? `<a href="${c.link}" target="_blank" class="chat-link-btn">${c.link}</a>` : '<span class="text-muted">Özel Grup</span>'}</td>
+                                <td>${c.link ? `<button class="btn btn-outline btn-sm" onclick="copyTextToClipboard('${c.link}')" style="padding: 2px 6px; font-size: 11px;"><i class="fa-solid fa-copy"></i></button>` : ''}</td>
+                            </tr>
+                        `;
+                    });
+                    html += `</tbody></table>`;
+                }
+
+                html += `</div>`;
+            });
+
+            modalCount.textContent = `Toplam ${totalChats} Grup / Kanal`;
+            modalBody.innerHTML = html;
+        } catch(e) {
+            modalBody.innerHTML = `<div class="text-danger p-4">Gruplar alınırken hata oluştu.</div>`;
+        }
+    }
+}
+
+function copyTextToClipboard(text) {
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(() => {
+        showToast("Link kopyalandı!", "success");
+    }).catch(() => {
+        showToast("Kopyalanamadı.", "error");
+    });
+}
+
+function copyAccountLinks(phone) {
+    fetch(`${API_BASE}/api/accounts/${encodeURIComponent(phone)}/chats`)
+        .then(r => r.json())
+        .then(data => {
+            const links = (data.chats || []).map(c => c.link).filter(Boolean);
+            if (links.length > 0) {
+                navigator.clipboard.writeText(links.join('\n'));
+                showToast(`${links.length} adet link kopyalandı!`, "success");
+            } else {
+                showToast("Kopyalanacak link bulunamadı.", "warning");
+            }
+        })
+        .catch(() => {
+            showToast("Linkler kopyalanamadı.", "error");
+        });
+}
+
 

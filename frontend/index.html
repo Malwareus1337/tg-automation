@@ -485,6 +485,9 @@
                             <span class="text-muted" style="font-size: 13px;">Her pencere bağımsız bir Telegram Web olarak çalışır. Ayarlar, bio, fotoğraf ve tüm Telegram özelliklerini eksiksiz kullanabilirsiniz.</span>
                         </div>
                         <div style="display: flex; align-items: center; gap: 8px;">
+                            <button class="btn btn-outline btn-sm" id="btn-show-all-chats" title="Tüm Numaraların Katıldığı Grupları ve Linklerini Gör">
+                                <i class="fa-solid fa-list-check neon-text"></i> Gruplar & Linkler
+                            </button>
                             <div class="view-toggle-group">
                                 <button class="btn btn-outline btn-sm tgweb-col-btn" data-cols="2" title="Yan Yana 2 Pencere">2'li</button>
                                 <button class="btn btn-outline btn-sm tgweb-col-btn active" data-cols="3" title="Yan Yana 3 Pencere">3'lü</button>
@@ -597,6 +600,29 @@
     <!-- UI Overlay for API actions -->
     <div id="ui-toast-container"></div>
 
-    <script src="static/app.js?v=9"></script>
+    <!-- Account Chats & Links Modal -->
+    <div class="modal-overlay" id="modal-account-chats">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-list-check neon-text"></i> <span id="modal-chats-title">Katılınan Gruplar & Linkler</span></h3>
+                <button class="modal-close-btn" id="btn-close-chats-modal">&times;</button>
+            </div>
+            <div class="modal-body" id="modal-chats-body">
+                <div style="text-align: center; padding: 30px; color: var(--text-muted);">
+                    <i class="fa-solid fa-spinner fa-spin" style="font-size: 28px; margin-bottom: 10px;"></i>
+                    <p>Gruplar ve bağlantılar alınıyor...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <span class="text-muted" style="font-size: 13px;" id="modal-chats-count">0 Grup/Kanal Bulundu</span>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn btn-outline btn-sm" id="btn-copy-all-links"><i class="fa-solid fa-copy"></i> Linkleri Kopyala</button>
+                    <button class="btn btn-primary btn-sm" id="btn-modal-close-action">Kapat</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="static/app.js?v=10"></script>
 </body>
 </html>

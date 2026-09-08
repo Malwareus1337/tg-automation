@@ -160,6 +160,45 @@ async def check_all_accounts():
             results.append({"phone": acc["phone"], "status": "error", "message": str(e)})
     return results
 
+@app.get("/api/accounts/{phone}/chats")
+async def get_account_chats(phone: str):
+    try:
+        chats = await TelegramManager.get_joined_chats_for_phone(phone)
+        return {"phone": phone, "chats": chats, "total": len(chats)}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/api/accounts-chats/all")
+async def get_all_accounts_chats():
+    accounts = db.get_accounts()
+    results = []
+    for acc in accounts:
+        if acc.get("status") == "active":
+            try:
+                chats = await TelegramManager.get_joined_chats_for_phone(acc["phone"])
+                results.append({
+                    "phone": acc["phone"],
+                    "status": acc["status"],
+                    "chats": chats,
+                    "total": len(chats)
+                })
+            except Exception as e:
+                results.append({
+                    "phone": acc["phone"],
+                    "status": "error",
+                    "chats": [],
+                    "total": 0,
+                    "error": str(e)
+                })
+        else:
+            results.append({
+                "phone": acc["phone"],
+                "status": acc["status"],
+                "chats": [],
+                "total": 0
+            })
+    return results
+
 @app.get("/api/settings")
 def get_settings():
     return db.get_settings()
