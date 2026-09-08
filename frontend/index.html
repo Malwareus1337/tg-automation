@@ -464,18 +464,40 @@
                     </div>
                     <div style="display: flex; align-items: center; gap: 10px;">
                         <div class="view-toggle-group">
-                            <button class="btn btn-outline btn-sm active" id="btn-view-single" title="Tekli Geniş Görünüm">
-                                <i class="fa-solid fa-square"></i> Tekli Görünüm
+                            <button class="btn btn-outline btn-sm active" id="btn-view-tgweb" title="Gerçek Web Telegram (İzole iFrame)">
+                                <i class="fa-brands fa-telegram"></i> Web Telegram (iFrame)
                             </button>
-                            <button class="btn btn-outline btn-sm" id="btn-view-split" title="Yan Yana Çoklu Pencere">
-                                <i class="fa-solid fa-table-columns"></i> Çoklu Pencere (Split)
+                            <button class="btn btn-outline btn-sm" id="btn-view-single" title="Hafif Tekli Görünüm">
+                                <i class="fa-solid fa-square"></i> Hafif Tekli
+                            </button>
+                            <button class="btn btn-outline btn-sm" id="btn-view-split" title="Hafif Çoklu Pencere">
+                                <i class="fa-solid fa-table-columns"></i> Hafif Çoklu
                             </button>
                         </div>
                     </div>
                 </header>
 
-                <!-- Single Account Messenger View -->
-                <div id="messenger-single-container">
+                <!-- 1. Real Telegram Web iFrame Multi-Account Grid (Default) -->
+                <div id="messenger-tgweb-container">
+                    <div class="card glass-panel" style="padding: 12px 18px; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <span class="badge badge-primary"><i class="fa-solid fa-shield-halved"></i> Tam İzole Oturumlar</span>
+                            <span class="text-muted" style="font-size: 13px;">Her pencere bağımsız bir Telegram Web olarak çalışır. Ayarlar, bio, fotoğraf ve tüm Telegram özelliklerini eksiksiz kullanabilirsiniz.</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <button class="btn btn-primary btn-sm" id="btn-add-tgweb-frame">
+                                <i class="fa-solid fa-plus"></i> Yeni Telegram Web Penceresi Ekle
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="tgweb-grid" id="tgweb-frames-grid">
+                        <!-- Dynamic Telegram Web iFrames -->
+                    </div>
+                </div>
+
+                <!-- 2. Single Account Messenger View (Alternative) -->
+                <div id="messenger-single-container" style="display: none;">
                     <div class="card glass-panel" style="padding: 12px 18px; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
                         <div style="display: flex; align-items: center; gap: 12px;">
                             <label style="font-weight: 600; color: var(--text-muted); font-size: 14px;"><i class="fa-solid fa-sim-card neon-text"></i> Aktif Hesap:</label>
@@ -570,6 +592,6 @@
     <!-- UI Overlay for API actions -->
     <div id="ui-toast-container"></div>
 
-    <script src="static/app.js?v=7"></script>
+    <script src="static/app.js?v=8"></script>
 </body>
 </html>

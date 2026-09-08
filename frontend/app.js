@@ -932,30 +932,51 @@ function bindEvents() {
         });
     }
 
-    // View Toggles (Single vs Split)
+    // View Toggles (Telegram Web iFrames vs Single vs Split)
+    const btnTgWeb = document.getElementById('btn-view-tgweb');
     const btnSingle = document.getElementById('btn-view-single');
     const btnSplit = document.getElementById('btn-view-split');
+    const tgwebContainer = document.getElementById('messenger-tgweb-container');
     const singleContainer = document.getElementById('messenger-single-container');
     const splitContainer = document.getElementById('messenger-split-container');
 
-    if (btnSingle && btnSplit) {
-        btnSingle.addEventListener('click', () => {
-            btnSingle.classList.add('active');
-            btnSplit.classList.remove('active');
-            if (singleContainer) singleContainer.style.display = 'block';
-            if (splitContainer) splitContainer.style.display = 'none';
-        });
+    function setActiveView(view) {
+        [btnTgWeb, btnSingle, btnSplit].forEach(b => b?.classList.remove('active'));
+        if (tgwebContainer) tgwebContainer.style.display = 'none';
+        if (singleContainer) singleContainer.style.display = 'none';
+        if (splitContainer) splitContainer.style.display = 'none';
 
-        btnSplit.addEventListener('click', () => {
-            btnSplit.classList.add('active');
-            btnSingle.classList.remove('active');
-            if (singleContainer) singleContainer.style.display = 'none';
+        if (view === 'tgweb') {
+            btnTgWeb?.classList.add('active');
+            if (tgwebContainer) tgwebContainer.style.display = 'block';
+            if (document.querySelectorAll('.tgweb-card').length === 0) {
+                setupTgWebFrames();
+            }
+        } else if (view === 'single') {
+            btnSingle?.classList.add('active');
+            if (singleContainer) singleContainer.style.display = 'block';
+        } else if (view === 'split') {
+            btnSplit?.classList.add('active');
             if (splitContainer) splitContainer.style.display = 'block';
             if (splitWindows.length === 0) {
                 setupSplitView();
             }
+        }
+    }
+
+    if (btnTgWeb) btnTgWeb.addEventListener('click', () => setActiveView('tgweb'));
+    if (btnSingle) btnSingle.addEventListener('click', () => setActiveView('single'));
+    if (btnSplit) btnSplit.addEventListener('click', () => setActiveView('split'));
+
+    const btnAddTgWebFrame = document.getElementById('btn-add-tgweb-frame');
+    if (btnAddTgWebFrame) {
+        btnAddTgWebFrame.addEventListener('click', () => {
+            addTgWebFrame();
         });
     }
+
+    // Auto-init Telegram Web frames on start
+    setupTgWebFrames();
 
     const btnAddSplitCol = document.getElementById('btn-add-split-col');
     if (btnAddSplitCol) {
@@ -1411,3 +1432,81 @@ async function loadSplitMessages(winObj, chatName) {
         if (listEl) listEl.innerHTML = `<div style="padding: 10px; color: var(--danger); font-size: 12px;">Bağlantı hatası</div>`;
     }
 }
+
+// ==========================================
+// Isolated Telegram Web iFrame Manager
+// ==========================================
+
+let nextTgWebIndex = 1;
+
+function setupTgWebFrames() {
+    const grid = document.getElementById('tgweb-frames-grid');
+    if (!grid || grid.children.length > 0) return;
+
+    // Open initial 2 isolated Telegram Web frames
+    addTgWebFrame();
+    addTgWebFrame();
+}
+
+function addTgWebFrame() {
+    const grid = document.getElementById('tgweb-frames-grid');
+    if (!grid) return;
+
+    const frameNum = nextTgWebIndex++;
+    const cardId = `tgweb_card_${frameNum}`;
+    const frameOrigin = `http://acc${frameNum}.localhost:8000`;
+    let currentVersion = 'k';
+
+    const card = document.createElement('div');
+    card.className = 'tgweb-card glass-panel';
+    card.id = cardId;
+
+    card.innerHTML = `
+        <div class="tgweb-card-header">
+            <div class="tgweb-card-title">
+                <span class="badge badge-primary"><i class="fa-brands fa-telegram"></i> Telegram Web #${frameNum}</span>
+                <span style="font-size: 11.5px; color: var(--text-muted);">İzole Alan: acc${frameNum}.localhost</span>
+            </div>
+            <div class="tgweb-card-actions">
+                <select class="tgweb-version-select" title="Telegram Web Sürümü">
+                    <option value="k" selected>Web K (Klasik)</option>
+                    <option value="a">Web A (Yeni)</option>
+                </select>
+                <button class="tgweb-btn-reload" title="Pencereyi Yenile"><i class="fa-solid fa-rotate"></i></button>
+                <button class="tgweb-btn-popup" title="Ayrı Pencerede Aç (Popup)"><i class="fa-solid fa-arrow-up-right-from-square"></i></button>
+                <button class="tgweb-btn-close" title="Pencereyi Kapat"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+        </div>
+        <iframe src="${frameOrigin}/${currentVersion}/" allow="camera; microphone; clipboard-read; clipboard-write;" class="tgweb-iframe" id="${cardId}_iframe"></iframe>
+    `;
+
+    grid.appendChild(card);
+
+    const iframeEl = card.querySelector(`#${cardId}_iframe`);
+    const versionSelect = card.querySelector('.tgweb-version-select');
+    const reloadBtn = card.querySelector('.tgweb-btn-reload');
+    const popupBtn = card.querySelector('.tgweb-btn-popup');
+    const closeBtn = card.querySelector('.tgweb-btn-close');
+
+    // Switch version
+    versionSelect.addEventListener('change', (e) => {
+        currentVersion = e.target.value;
+        iframeEl.src = `${frameOrigin}/${currentVersion}/`;
+    });
+
+    // Reload
+    reloadBtn.addEventListener('click', () => {
+        iframeEl.src = iframeEl.src;
+    });
+
+    // Popup in standalone window
+    popupBtn.addEventListener('click', () => {
+        window.open(`${frameOrigin}/${currentVersion}/`, `tgweb_${frameNum}`, 'width=1000,height=850');
+    });
+
+    // Close
+    closeBtn.addEventListener('click', () => {
+        card.remove();
+    });
+}
+

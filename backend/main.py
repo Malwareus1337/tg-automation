@@ -2,10 +2,11 @@ import os
 import asyncio
 import datetime
 import shutil
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, BackgroundTasks, UploadFile, File
+import httpx
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, BackgroundTasks, UploadFile, File, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Union
 
@@ -203,6 +204,69 @@ async def send_messenger_message(req: SendMessengerMessageRequest):
         return res
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+# Telegram Web Reverse Proxy (Strips X-Frame-Options to allow iframes in multi-window panels)
+proxy_http_client = httpx.AsyncClient(timeout=30.0, follow_redirects=True)
+
+@app.api_route("/k", methods=["GET", "POST", "HEAD"])
+@app.api_route("/k/{full_path:path}", methods=["GET", "POST", "HEAD"])
+async def proxy_telegram_web_k(request: Request, full_path: str = ""):
+    target_url = f"https://web.telegram.org/k/{full_path}"
+    if request.url.query:
+        target_url += f"?{request.url.query}"
+    
+    headers = dict(request.headers)
+    headers.pop("host", None)
+    headers["referer"] = "https://web.telegram.org/k/"
+    
+    try:
+        body = await request.body()
+        resp = await proxy_http_client.request(
+            method=request.method,
+            url=target_url,
+            headers=headers,
+            content=body
+        )
+        
+        excluded_headers = ["content-encoding", "content-length", "transfer-encoding", "connection", "x-frame-options"]
+        res_headers = {
+            k: v for k, v in resp.headers.items() 
+            if k.lower() not in excluded_headers
+        }
+        res_headers["Access-Control-Allow-Origin"] = "*"
+        return Response(content=resp.content, status_code=resp.status_code, headers=res_headers)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Telegram Web Proxy Error: {str(e)}")
+
+@app.api_route("/a", methods=["GET", "POST", "HEAD"])
+@app.api_route("/a/{full_path:path}", methods=["GET", "POST", "HEAD"])
+async def proxy_telegram_web_a(request: Request, full_path: str = ""):
+    target_url = f"https://web.telegram.org/a/{full_path}"
+    if request.url.query:
+        target_url += f"?{request.url.query}"
+    
+    headers = dict(request.headers)
+    headers.pop("host", None)
+    headers["referer"] = "https://web.telegram.org/a/"
+    
+    try:
+        body = await request.body()
+        resp = await proxy_http_client.request(
+            method=request.method,
+            url=target_url,
+            headers=headers,
+            content=body
+        )
+        
+        excluded_headers = ["content-encoding", "content-length", "transfer-encoding", "connection", "x-frame-options"]
+        res_headers = {
+            k: v for k, v in resp.headers.items() 
+            if k.lower() not in excluded_headers
+        }
+        res_headers["Access-Control-Allow-Origin"] = "*"
+        return Response(content=resp.content, status_code=resp.status_code, headers=res_headers)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Telegram Web Proxy Error: {str(e)}")
 
 @app.get("/api/tasks/status")
 def get_task_status():
