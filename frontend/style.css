@@ -60,22 +60,29 @@ body {
     display: flex;
     align-items: center;
     gap: 12px;
-    margin-bottom: 40px;
-    padding-left: 8px;
+    margin-bottom: 34px;
+    padding-left: 6px;
 }
 
 .sidebar-brand i {
-    font-size: 28px;
+    font-size: 30px;
+    filter: drop-shadow(0 0 10px var(--primary-glow));
 }
 
 .sidebar-brand h2 {
-    font-size: 22px;
+    font-size: 18px;
     font-weight: 700;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.3px;
+    line-height: 1.2;
 }
 
 .sidebar-brand h2 span {
     color: var(--secondary);
+    display: block;
+    font-size: 13.5px;
+    font-weight: 600;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
 }
 
 .sidebar-menu {
